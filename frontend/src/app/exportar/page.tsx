@@ -203,7 +203,7 @@ export default function ExportarPage() {
               <button
                 onClick={() =>
                   handleExportar("manifiesto", () =>
-                    exportarProvinciaPorId(manifiestoId, provinciaSel, metadata?.nombre_archivo || "")
+                    exportarProvinciaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || "")
                   )
                 }
                 disabled={exportando !== null}

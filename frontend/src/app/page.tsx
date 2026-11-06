@@ -2,28 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 
 export default function Home() {
   const router = useRouter();
   const { recargarLista } = useManifiesto();
-
-  // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
-  // Estados para Comparar
+
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
   const [archivoVentas, setArchivoVentas] = useState<File | null>(null);
   const [comparando, setComparando] = useState(false);
   const [errorComparar, setErrorComparar] = useState<string | null>(null);
 
-  // Guardián de seguridad
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || token === "token_falso_de_prueba") {
@@ -128,6 +126,22 @@ export default function Home() {
               <p className="text-slate-700 font-medium mb-1">
                 {archivo ? archivo.name : "Arrastra tu archivo aquí o haz clic para buscar"}
               </p>
+              {archivo && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setArchivo(null);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors z-10 relative"
+                    title="Quitar archivo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-slate-500 mt-1">Formatos soportados: .xlsx, .xls, .csv</p>
               <p className="text-sm text-slate-500">Formatos soportados: .xlsx, .xls, .csv</p>
             </div>
 

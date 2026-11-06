@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { subirYGuardarManifiesto } from "@/lib/api"; // Asegúrate de que esta función exista en tu api.ts
+import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 
 export default function Home() {
@@ -24,7 +24,7 @@ export default function Home() {
 
     try {
       // Llamamos a la API para procesar y guardar el Excel
-      await subirYGuardarManifiesto(archivo);
+      await subirManifiesto(archivo);
       setExito(true);
 
       if (recargarLista) recargarLista();

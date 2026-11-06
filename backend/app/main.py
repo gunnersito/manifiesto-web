@@ -3,7 +3,6 @@ Punto de entrada de la API FastAPI.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import CORS_ORIGINS
 from app.core.database import init_db
 
 # Importamos todas las rutas
@@ -16,10 +15,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --- CORS ---
+# --- CORS (Configuración forzada para producción) ---
+# Ponemos la URL exacta de Vercel para que no falle por la variable CORS_ORIGINS
+origins = [
+    "https://manifiesto-80y4b5dr3-manifiesto1.vercel.app", # 👈 Tu URL de Vercel
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=origins, # 👈 Usamos la lista directamente
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,7 +38,7 @@ def on_startup():
 # --- Incluir routers (Todos con el prefijo /api) ---
 app.include_router(auth.router, prefix="/api")
 app.include_router(usuarios.router, prefix="/api")
-app.include_router(manifiestos.router, prefix="/api") # 👈 Le agregamos el /api para que todo sea consistente
+app.include_router(manifiestos.router, prefix="/api")
 
 # --- Endpoint de prueba ---
 @app.get("/")

@@ -142,7 +142,6 @@ export default function Home() {
                 )}
               </div>
               <p className="text-sm text-slate-500 mt-1">Formatos soportados: .xlsx, .xls, .csv</p>
-              <p className="text-sm text-slate-500">Formatos soportados: .xlsx, .xls, .csv</p>
             </div>
 
             {error && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { subirManifiesto } from "@/lib/api";
@@ -13,6 +13,18 @@ export default function Home() {
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
+  const [verificando, setVerificando] = useState(true); 
+
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    // Si no hay token o es el falso, lo mandamos al login
+    if (!token || token === "token_falso_de_prueba") {
+      router.replace("/login");
+    } else {
+      setVerificando(false); // Si tiene token, mostramos la página
+    }
+  }, [router]);
 
   const handleSubir = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,13 +35,11 @@ export default function Home() {
     setExito(false);
 
     try {
-      // Llamamos a la API para procesar y guardar el Excel
       await subirManifiesto(archivo);
       setExito(true);
 
       if (recargarLista) recargarLista();
 
-      // Redirigimos a los manifiestos después de un segundo
       setTimeout(() => {
         router.push("/manifiestos");
       }, 1500);
@@ -40,6 +50,15 @@ export default function Home() {
       setSubiendo(false);
     }
   };
+
+  if (verificando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-3 text-slate-600">Verificando sesión...</span>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">

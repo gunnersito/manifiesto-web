@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // 1. Forzamos la URL (si el .env.local falla, esto lo soluciona)
-const API_URL = "http://127.0.0.1:8000/api";
+const API_URL = "https://manifiesto-backend.onrender.com/api";
 
 // 2. Creamos la instancia
 export const api = axios.create({

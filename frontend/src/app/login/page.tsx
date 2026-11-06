@@ -10,24 +10,17 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
     const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  try {
-    // 1. Capturamos la respuesta del backend
-    const data = await loginRequest(username, password);
+    // ⚠️ MODO PRUEBA TEMPORAL: Entramos directo sin consultar al backend
+    localStorage.setItem("token", "token_falso_de_prueba");
+    localStorage.setItem("role", "admin");
+    localStorage.setItem("username", "admin");
 
-    // 2. Guardamos los datos en el localStorage
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("role", data.role);          // 👈 Esto arregla el acceso a Configuración
-    localStorage.setItem("username", data.username);
-
-    // 3. Forzamos la recarga para ir a Manifiestos
+    // Recargamos para entrar directo a los manifiestos
     window.location.href = "/manifiestos";
-  } catch (err: any) {
-    setError(err.response?.data?.detail || "Error al iniciar sesión");
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">

@@ -145,7 +145,7 @@ export default function ExportarPage() {
                 <button
                   onClick={() =>
                   handleExportar("todas", () =>
-                  exportarTodasProvinciasPorId(manifiestoId, metadata?.nombre_archivo || `manifiesto_${manifiestoId}`
+                  exportarTodasProvinciasPorId(manifiestoId!, metadata?.nombre_archivo || `manifiesto_${manifiestoId}`
     )
   )
 }
@@ -224,7 +224,7 @@ export default function ExportarPage() {
               <button
                 onClick={() =>
                   handleExportar("ruta", () =>
-                    exportarHojaRutaPorId(manifiestoId, provinciaSel, metadata?.nombre_archivo || "")
+                    exportarHojaRutaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || "")
                   )
                 }
                 disabled={exportando !== null}
@@ -245,7 +245,7 @@ export default function ExportarPage() {
               <button
                 onClick={() =>
                   handleExportar("municipios", () =>
-                    exportarPorMunicipiosPorId(manifiestoId, provinciaSel, metadata?.nombre_archivo || "")
+                    exportarPorMunicipiosPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || "")
                   )
                 }
                 disabled={exportando !== null}

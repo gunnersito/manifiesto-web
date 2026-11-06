@@ -196,7 +196,7 @@ export default function ConfiguracionPage() {
           {/* Campo Rol */}
           <div className="flex flex-col justify-end w-full md:w-[150px]">
             <Label className="text-sm font-medium text-slate-700 mb-2">Rol</Label>
-            <Select value={nuevoUser.role} onValueChange={(v) => setNuevoUser({...nuevoUser, role: v})}>
+            <Select value={nuevoUser.role} onValueChange={(v) => setNuevoUser({...nuevoUser, role: v || "guest"})}>
               <SelectTrigger className="w-full !h-[42px] bg-white px-3 py-2">
                 <SelectValue placeholder="Selecciona" />
               </SelectTrigger>
@@ -350,7 +350,7 @@ export default function ConfiguracionPage() {
               )}
               <div>
                 <Label className="mb-2 block">Rol</Label>
-                <Select value={editRole} onValueChange={setEditRole}>
+                <Select value={editRole} onValueChange={(v) => setEditRole(v || "guest")}>
                   <SelectTrigger className="w-full !h-[42px] bg-white px-3 py-2">
                     <SelectValue />
                   </SelectTrigger>

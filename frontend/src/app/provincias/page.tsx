@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -43,9 +43,9 @@ import {
 import Dashboard from "@/components/Dashboard";
 
 // ============================================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE PRINCIPAL (INTERNO)
 // ============================================================
-export default function ProvinciasPage() {
+function ProvinciasContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -80,7 +80,18 @@ export default function ProvinciasPage() {
 }
 
 // ============================================================
-// VISTA 1: RESUMEN / TARJETAS (Antes en provincias/page.tsx)
+// EXPORTACIÓN CON SUSPENSE
+// ============================================================
+export default function ProvinciasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando provincias...</div>}>
+      <ProvinciasContent />
+    </Suspense>
+  );
+}
+
+// ============================================================
+// VISTA 1: RESUMEN / TARJETAS
 // ============================================================
 function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, metadata: any }) {
   const [busqueda, setBusqueda] = useState("");
@@ -223,7 +234,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
               {provinciasAMostrar.map((p: ManifiestoResumen) => (
                 <Link
                   key={p.provincia}
-                  href={`/provincias?nombre=${encodeURIComponent(p.provincia)}`} // 👈 URL LIMPIA AQUÍ
+                  href={`/provincias?nombre=${encodeURIComponent(p.provincia)}`}
                   className="border border-slate-200 rounded-lg p-4 text-left hover:border-blue-400 hover:shadow-md hover:bg-blue-50/30 transition-all group block"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -246,7 +257,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 }
 
 // ============================================================
-// VISTA 2: DETALLE (Antes en provincias/[nombre]/page.tsx)
+// VISTA 2: DETALLE
 // ============================================================
 function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: string, manifiestoId: number, metadata: any }) {
   const [paradas, setParadas] = useState<ParadasResponse | null>(null);

@@ -540,12 +540,11 @@ from pathlib import Path
 import shutil
 import hashlib
 
-@router.post("/guardar",dependencies=[Depends(verificar_admin)])
+@router.post("/guardar", dependencies=[Depends(verificar_admin)])
 async def guardar_endpoint(
     file: UploadFile = File(...),
     hoja: Optional[str] = Form(None),
     umbral: float = Form(UMBRAL_SIMILITUD),
-    dependencies=[Depends(verificar_admin)]
 ):
     """Procesa el Excel, lo guarda en SQLite y guarda el archivo original en disco."""
     contenido = await file.read()
@@ -878,7 +877,6 @@ async def obtener_provincia_por_id(
 async def comparar_manifiestos(
         file_general: UploadFile = File(...),
         file_ventas: UploadFile = File(...),
-        dependencies=[Depends(verificar_admin)]
 ):
     try:
         # 1. Leer el archivo General

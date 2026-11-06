@@ -1,0 +1,17 @@
+{
+  "name": "manifiesto-web",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+  "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\"",
+  "dev:front": "cd frontend && npm run dev",
+  "dev:back": "cd backend && .venv\\Scripts\\activate && uvicorn app.main:app --reload"
+},
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0"
+  }
+}

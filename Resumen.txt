@@ -1,0 +1,95 @@
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Fecha: [Pon la fecha de hoy]
+==================================================
+
+1. ARQUITECTURA Y ENTORNO
+- Backend: FastAPI + SQLAlchemy + SQLite (entregas.db). Usa Pandas y Openpyxl.
+- Frontend: Next.js (React) con Tailwind CSS v4 y shadcn/ui (usando Base UI).
+- Arranque: Usamos "concurrently" en la raíz (npm run dev) para levantar front y back en una sola terminal.
+- IDE: WebStorm configurado correctamente con el intérprete .venv de Python.
+
+2. PROBLEMAS RESUELTOS (Backend)
+- Error 404 (Provincias): El frontend llamaba a /manifiestos/{id}/hbls pero el backend no lo tenía. Se creó la ruta @router.get("/{manifiesto_id}/hbls").
+- Error 422 (Registros): El frontend llamaba a /hbls pero el backend exigía el ID. Se restauró el endpoint @router.get("/hbls") con el ID como opcional (Optional[int] = None).
+
+3. PROBLEMAS RESUELTOS (Frontend)
+- Dependencias: Se instalaron todas las librerías faltantes de Tailwind v4, shadcn, Base UI y CVA.
+- Refactor de Provincias: Se eliminó la carpeta [nombre] y se unificó todo en src/app/provincias/page.tsx.
+- URLs Limpias: Ahora la URL usa Query Params (ej. /provincias?nombre=PINAR%20DEL%20RIO) en lugar de rutas dinámicas con %20. La página decide si muestra el listado de tarjetas o el detalle basándose en si recibe el parámetro "nombre".
+- Next.js 15: Se añadió "export const dynamic = 'force-dynamic';" para evitar errores con useSearchParams.
+
+4. PENDIENTE PARA LA PRÓXIMA SESIÓN
+- Retomar la mejora de la pantalla de "Restar Manifiesto (Comparar)".
+- Opciones acordadas: Añadir columnas al Excel resultante, guardar en BD en lugar de descargar, validaciones de archivos o mejorar el diseño de los botones de subida.
+==================================================
+
+
+
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+==================================================
+
+1. ARQUITECTURA ACTUAL
+- Backend: FastAPI (Python) + SQLite nativo (sqlite3). Sin SQLAlchemy.
+- Frontend: Next.js 15 (React), Tailwind CSS v4, shadcn/ui y Base UI.
+- Base de datos (entregas.db): Tablas 'manifiestos', 'hbls', 'entregas' y 'usuarios'.
+- Arranque: Se usa "concurrently" en la raíz (npm run dev) para levantar front y back juntos.
+
+2. GESTIÓN DE USUARIOS (Lo hecho hoy)
+- Migración exitosa de usuarios de memoria (diccionario) a la base de datos SQLite.
+- Contraseñas encriptadas con Bcrypt (instalado passlib/bcrypt). 
+- El login ahora verifica contra la BD.
+- Creado el script 'crear_admin.py' para generar al usuario 'admin' (pass: admin123).
+- Endpoints en backend: Listar, Crear, Editar (PUT) y Eliminar usuarios.
+- Frontend (Configuración): 
+  * Tabla de usuarios con badges de rol.
+  * Formulario de creación con validación de contraseña (doble input).
+  * Modal de edición para cambiar rol y contraseña, con doble confirmación y mensaje de error visual.
+  * El usuario "admin" está protegido (no muestra botones de editar/eliminar).
+  * Icono del "ojito" para mostrar/ocultar contraseñas.
+- Frontend (Mi Perfil): 
+  * Nueva ruta /perfil para que CUALQUIER usuario (admin o guest) cambie su propia contraseña.
+  * Enlace al perfil desde el Sidebar (clic en el nombre) y en el menú.
+- Sidebar actualizado: Oculta "Configuración" y "Subir" a los usuarios con rol 'guest'.
+
+3. PENDIENTE / PRÓXIMOS PASOS
+- Volver a la pantalla de "Restar Manifiesto (Comparar)" (mejora pendiente original).
+- Opcional: Poner el "ojito" también en el campo de confirmación de contraseña.
+- Opcional: Añadir un Toast/notificación flotante en lugar del alert() nativo para los mensajes de éxito/error.
+==================================================
+
+
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: Listo para Despliegue en Producción
+==================================================
+
+1. LO QUE HEMOS LOGRADO HOY
+- Gestión de Usuarios completa: Crear, editar (rol/contraseña), eliminar y cambiar la propia contraseña (Mi Perfil).
+- Protección del Admin: No se puede borrar a sí mismo y el botón desaparece en la UI.
+- Detalles de UI: Contraseñas con "ojito" para ver, validación visual en rojo con mensaje "Las contraseñas no coinciden", inputs perfectamente alineados y el dropdown de roles siempre se abre hacia abajo.
+- MIGRACIÓN A LA NUBE EXITOSA: 
+  * Base de datos: Pasamos de SQLite local a PostgreSQL en Supabase.
+  * El backend local ya se conecta a internet y crea usuarios en la nube.
+  * El script 'crear_admin.py' ya creó el admin (admin / admin123) en Supabase.
+
+2. ARQUITECTURA ACTUAL
+- Base de Datos: Supabase (PostgreSQL). Las tablas 'usuarios', 'manifiestos', 'hbls' y 'entregas' ya están creadas.
+- Backend: FastAPI (Python). Usa 'psycopg2' para conectar con Supabase y 'python-dotenv' para leer el archivo .env.
+- Frontend: Next.js 15 (React) + Tailwind CSS v4 + shadcn/ui.
+
+3. LO QUE VAMOS A HACER AHORA (Próximos pasos)
+Objetivo: Publicar el sistema en internet para acceder desde cualquier lugar.
+- Paso 1: Subir el código a un repositorio de GitHub.
+- Paso 2: Desplegar el Backend en Render.com (Web Service). Configurar variables de entorno (DATABASE_URL y SECRET_KEY).
+- Paso 3: Desplegar el Frontend en Vercel.com. Configurar la variable NEXT_PUBLIC_API_URL apuntando a Render.
+- Paso 4: Configurar CORS en el backend para permitir peticiones desde el dominio de Vercel.
+
+4. NOTAS Y PENDIENTES FUTUROS
+- Persistencia del backend: Recordar que en Render (plan gratis) el servidor "duerme" tras 15 min de inactividad (tarda ~30s en despertar).
+- Los manifiestos Excel antiguos locales ya no aparecen (están en SQLite), habrá que volver a subirlos en producción.
+- Mejoras futuras: Añadir "Toasts" (notificaciones flotantes) en vez de alert(), rediseñar la pantalla de "Restar Manifiesto" y poner un "ojito" en el campo de confirmación de contraseña.
+==================================================

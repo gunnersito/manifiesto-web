@@ -111,8 +111,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">📤 Subir Manifiesto</h1>
           <p className="text-slate-600">Sube tu archivo Excel para procesarlo y guardarlo en el sistema</p>
         </div>
-
-        {/* Tarjeta de Subida Normal */}
+        
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <form onSubmit={handleSubir} className="space-y-6">
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:bg-slate-50 transition-colors relative cursor-pointer">
@@ -123,10 +122,11 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-700 font-medium mb-1">
-                {archivo ? archivo.name : "Arrastra tu archivo aquí o haz clic para buscar"}
-              </p>
-              {archivo && (
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-slate-700 font-medium">
+                  {archivo ? archivo.name : "Arrastra tu archivo aquí o haz clic para buscar"}
+                </p>
+                {archivo && (
                   <button
                     type="button"
                     onClick={(e) => {

@@ -9,20 +9,27 @@ import { useManifiesto } from "@/contexts/ManifiestoContext";
 export default function Home() {
   const router = useRouter();
   const { recargarLista } = useManifiesto();
+
+  // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
-  const [verificando, setVerificando] = useState(true); 
+  const [verificando, setVerificando] = useState(true);
 
+  // Estados para Comparar
+  const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
+  const [archivoVentas, setArchivoVentas] = useState<File | null>(null);
+  const [comparando, setComparando] = useState(false);
+  const [errorComparar, setErrorComparar] = useState<string | null>(null);
 
+  // Guardián de seguridad
   useEffect(() => {
     const token = localStorage.getItem("token");
-    // Si no hay token o es el falso, lo mandamos al login
     if (!token || token === "token_falso_de_prueba") {
       router.replace("/login");
     } else {
-      setVerificando(false); // Si tiene token, mostramos la página
+      setVerificando(false);
     }
   }, [router]);
 
@@ -48,6 +55,44 @@ export default function Home() {
       setError(err.response?.data?.detail || err.message || "Error al subir el manifiesto");
     } finally {
       setSubiendo(false);
+    }
+  };
+
+  const handleComparar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!archivoGeneral || !archivoVentas) return;
+
+    setComparando(true);
+    setErrorComparar(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file_general", archivoGeneral);
+      formData.append("file_ventas", archivoVentas);
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api";
+
+      const res = await fetch(`${baseUrl}/manifiestos/comparar-manifiestos`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: formData
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Error al comparar manifiestos");
+      }
+
+      alert("¡Manifiestos comparados y guardados con éxito!");
+      if (recargarLista) recargarLista();
+      router.push("/manifiestos");
+
+    } catch (err: any) {
+      setErrorComparar(err.message || "Error en la comparación");
+    } finally {
+      setComparando(false);
     }
   };
 
@@ -126,16 +171,38 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto General</label>
-              <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+              <input
+                type="file"
+                onChange={(e) => setArchivoGeneral(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto de Ventas</label>
-              <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100" />
+              <input
+                type="file"
+                onChange={(e) => setArchivoVentas(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+              />
             </div>
           </div>
 
-          <button className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-            <Upload className="w-5 h-5" /> Comparar y Guardar
+          {errorComparar && (
+            <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+              {errorComparar}
+            </div>
+          )}
+
+          <button
+            onClick={handleComparar}
+            disabled={!archivoGeneral || !archivoVentas || comparando}
+            className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            {comparando ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Comparando...</>
+            ) : (
+              <><Upload className="w-5 h-5" /> Comparar y Guardar</>
+            )}
           </button>
         </div>
 

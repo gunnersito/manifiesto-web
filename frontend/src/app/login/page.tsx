@@ -9,17 +9,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-    const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // ⚠️ MODO PRUEBA TEMPORAL: Entramos directo sin consultar al backend
-    localStorage.setItem("token", "token_falso_de_prueba");
-    localStorage.setItem("role", "admin");
-    localStorage.setItem("username", "admin");
+    try {
+      const data = await loginRequest(username, password);
 
-    // Recargamos para entrar directo a los manifiestos
-    window.location.href = "/manifiestos";
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("username", data.username);
+
+      window.location.href = "/manifiestos";
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Error al iniciar sesión");
+    }
   };
 
   return (

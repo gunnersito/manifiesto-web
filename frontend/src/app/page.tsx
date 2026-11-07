@@ -206,10 +206,14 @@ export default function Home() {
             </div>
           )}
 
-          <button
+                    <button
             onClick={handleComparar}
             disabled={!archivoGeneral || !archivoVentas || comparando}
-            className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
+              (!archivoGeneral || !archivoVentas) 
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed" // 👈 Gris cuando está desactivado
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg" // 👈 Azul vivo cuando se activa
+            }`}
           >
             {comparando ? (
               <><Loader2 className="w-5 h-5 animate-spin" /> Comparando...</>

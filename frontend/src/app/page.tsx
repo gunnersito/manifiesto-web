@@ -9,19 +9,21 @@ import { useManifiesto } from "@/contexts/ManifiestoContext";
 export default function Home() {
   const router = useRouter();
   const { recargarLista } = useManifiesto();
+
+  // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
-
+  // Estados para Comparar
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
   const [archivoVentas, setArchivoVentas] = useState<File | null>(null);
   const [comparando, setComparando] = useState(false);
   const [errorComparar, setErrorComparar] = useState<string | null>(null);
 
-
+  // Guardián de seguridad
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || token === "token_falso_de_prueba") {
@@ -42,13 +44,10 @@ export default function Home() {
     try {
       await subirManifiesto(archivo);
       setExito(true);
-
       if (recargarLista) recargarLista();
-
       setTimeout(() => {
         router.push("/manifiestos");
       }, 1500);
-
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Error al subir el manifiesto");
     } finally {
@@ -69,7 +68,6 @@ export default function Home() {
       formData.append("file_ventas", archivoVentas);
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api";
-
       const res = await fetch(`${baseUrl}/manifiestos/comparar-manifiestos`, {
         method: "POST",
         headers: {
@@ -111,7 +109,8 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">📤 Subir Manifiesto</h1>
           <p className="text-slate-600">Sube tu archivo Excel para procesarlo y guardarlo en el sistema</p>
         </div>
-        
+
+        {/* Tarjeta de Subida Normal */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <form onSubmit={handleSubir} className="space-y-6">
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:bg-slate-50 transition-colors relative cursor-pointer">
@@ -122,6 +121,7 @@ export default function Home() {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+
               <div className="flex items-center justify-center gap-2">
                 <p className="text-slate-700 font-medium">
                   {archivo ? archivo.name : "Arrastra tu archivo aquí o haz clic para buscar"}
@@ -133,6 +133,8 @@ export default function Home() {
                       e.preventDefault();
                       e.stopPropagation();
                       setArchivo(null);
+                      const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+                      if (input) input.value = "";
                     }}
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors z-10 relative"
                     title="Quitar archivo"
@@ -182,20 +184,21 @@ export default function Home() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Manifiesto General */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto General</label>
-              <input
-                type="file"
-                onChange={(e) => setArchivoGeneral(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {archivoGeneral && (
+              <div className="relative">
+                <input
+                  type="file"
+                  onChange={(e) => setArchivoGeneral(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 pr-10"
+                />
+                {archivoGeneral && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       setArchivoGeneral(null);
-                      // Esto limpia el input visualmente
                       const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
                       if (input) input.value = "";
                     }}
@@ -207,20 +210,22 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+            {/* Manifiesto de Ventas */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto de Ventas</label>
-              <input
-                type="file"
-                onChange={(e) => setArchivoVentas(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-              />
-              {archivoVentas && (
+              <div className="relative">
+                <input
+                  type="file"
+                  onChange={(e) => setArchivoVentas(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 pr-10"
+                />
+                {archivoVentas && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       setArchivoVentas(null);
-                      // Esto limpia el input visualmente
                       const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
                       if (input) input.value = "";
                     }}
@@ -240,13 +245,13 @@ export default function Home() {
             </div>
           )}
 
-                    <button
+          <button
             onClick={handleComparar}
             disabled={!archivoGeneral || !archivoVentas || comparando}
             className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
               (!archivoGeneral || !archivoVentas) 
-                ? "bg-slate-200 text-slate-400 cursor-not-allowed" // 👈 Gris cuando está desactivado
-                : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg" // 👈 Azul vivo cuando se activa
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
             }`}
           >
             {comparando ? (

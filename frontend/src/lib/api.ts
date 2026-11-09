@@ -441,13 +441,15 @@ async function descargarArchivoPorId(
   nombreBase: string,
   prefijo: string
 ): Promise<void> {
-  const response = await api.post(url, {}, { responseType: "blob" });
+  const response = await api.post(url, {}, {
+    responseType: "blob",
+    timeout: 120000
+  });
 
   const blob = new Blob([response.data], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
-  // 👇 Limpiamos la extensión .xlsx del nombre si viene incluida
   const nombreLimpio = nombreBase.replace(/\.xlsx?$/i, "");
 
   const link = document.createElement("a");

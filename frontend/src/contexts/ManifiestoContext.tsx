@@ -70,12 +70,22 @@ export function ManifiestoProvider({ children }: { children: ReactNode }) {
 
   // --- Al montar: cargar lista + último manifiesto ---
       useEffect(() => {
-    if (!Cookies.get("token")) return; // 👈 No cargar si no hay sesión
-
+    if (!Cookies.get("token")) return;
     (async () => {
       const lista = await recargarLista();
       if (lista.length > 0 && !manifiestoId) {
         try {
+          const guardadoId = localStorage.getItem("manifiesto_id");
+          if (guardadoId) {
+            const idNumerico = Number(guardadoId);
+            const existe = lista.find((m) => m.id === idNumerico);
+            if (existe) {
+              const meta = await obtenerManifiesto(idNumerico);
+              setManifiestoId(meta.id);
+              setMetadata(meta);
+              return; // Salimos, ya cargamos el guardado
+            }
+          }
           const meta = await obtenerManifiesto(lista[0].id);
           setManifiestoId(meta.id);
           setMetadata(meta);

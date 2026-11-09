@@ -93,3 +93,35 @@ Objetivo: Publicar el sistema en internet para acceder desde cualquier lugar.
 - Los manifiestos Excel antiguos locales ya no aparecen (están en SQLite), habrá que volver a subirlos en producción.
 - Mejoras futuras: Añadir "Toasts" (notificaciones flotantes) en vez de alert(), rediseñar la pantalla de "Restar Manifiesto" y poner un "ojito" en el campo de confirmación de contraseña.
 ==================================================
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: DESPLEGADO EN PRODUCCIÓN 🚀
+==================================================
+
+1. LO QUE HEMOS LOGRADO HOY (Día de Despliegue)
+- Infraestructura en la nube: 
+  * Base de Datos: Supabase (PostgreSQL).
+  * Backend: Render (FastAPI).
+  * Frontend: Vercel (Next.js).
+- Conexión exitosa: El frontend en Vercel se comunica con el backend en Render y guarda datos en Supabase.
+- Login funcionando: Los usuarios pueden iniciar sesión con tokens reales (se creó el admin con contraseña personalizada en Supabase).
+- Página de Subir (Raíz): Restaurada con el guardián de seguridad (si no hay token, redirige al login). Añadido botón de "papelera" para quitar archivos seleccionados.
+- Página de Comparar Manifiestos: Conectada al backend, validación visual del botón (gris a azul) y botones para quitar archivos de comparación.
+
+2. PROBLEMAS RESUELTOS HOY
+- Error de CORS: Configurado correctamente en FastAPI para aceptar peticiones desde Vercel.
+- Error de variables de entorno: Se forzó la URL de Render directamente en el código (api.ts) para evitar fallos.
+- Errores de compilación en Vercel: Se arreglaron etiquetas duplicadas y errores de sintaxis en page.tsx.
+- Conflicto de contraseñas: Se resolvió creando al usuario admin directamente en Supabase con un hash compatible.
+
+3. LO QUE VAMOS A HACER MAÑANA (Próximos pasos)
+- Solucionar el error del "Archivo original no encontrado": Hacer que las exportaciones lean directamente de la base de datos (Supabase), sin depender de la carpeta uploads local de Render.
+- Cultura del detalle: Cambiar los alert() nativos por notificaciones flotantes (Toasts) para que la app se vea más profesional.
+- (Opcional): Revisar los límites del plan gratuito y evaluar si migrar a un plan pago si los clientes empiezan a usarlo mucho.
+- (Pendiente original): Terminar de pulir la pantalla de "Restar Manifiesto" para que el Excel generado se descargue automáticamente o se guarde en la base de datos.
+
+4. NOTAS IMPORTANTES
+- Plan gratuito de Render: El backend "duerme" tras 15 min de inactividad. La primera carga puede tardar hasta 50 segundos. Es normal.
+- La URL de producción es la de Vercel (manifiesto-web...). No compartas las URLs de "Preview" (las que tienen números aleatorios).
+==================================================

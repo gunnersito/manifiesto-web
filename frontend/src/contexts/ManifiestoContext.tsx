@@ -120,13 +120,21 @@ export function ManifiestoProvider({ children }: { children: ReactNode }) {
 }, [recargarLista]);
 
   // --- Seleccionar manifiesto existente ---
-  const seleccionarManifiesto = useCallback(async (id: number) => {
+    const seleccionarManifiesto = useCallback(async (id: number) => {
     setLoading(true);
     setError(null);
     try {
       const meta = await obtenerManifiesto(id);
       setManifiestoId(meta.id);
       setMetadata(meta);
+
+      localStorage.setItem("manifiesto_id", meta.id.toString());
+      
+      import("@/lib/api").then(({ api }) => {
+        api.put("/usuarios/perfil/manifiesto-activo", { manifiesto_id: meta.id })
+          .catch((err) => console.error("No se pudo guardar el manifiesto activo en el backend", err));
+      });
+
     } catch (err: any) {
       setError(err.message || "Error al cargar el manifiesto");
       throw err;

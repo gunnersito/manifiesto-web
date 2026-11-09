@@ -19,6 +19,11 @@ export default function LoginPage() {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
+      if (data.ultimo_manifiesto_id) {
+        localStorage.setItem("manifiesto_id", data.ultimo_manifiesto_id.toString());
+      } else {
+        localStorage.removeItem("manifiesto_id");
+      }
 
       window.location.href = "/manifiestos";
     } catch (err: any) {

@@ -17,6 +17,8 @@ class UsuarioUpdate(BaseModel):
 class PasswordUpdate(BaseModel):
     password: str
 
+class ManifiestoSeleccionado(BaseModel):
+    manifiesto_id: int | None
 
 @router.get("/")
 def listar_usuarios(admin: dict = Depends(verificar_admin)):
@@ -133,4 +135,20 @@ def crear_admin_temporal():
         return {"message": "✅ Usuario admin creado con la contraseña 'admin123'"}
     finally:
         cur.close()
+        conn.close()
+
+@router.put("/perfil/manifiesto-activo")
+def actualizar_manifiesto_activo(data: ManifiestoSeleccionado, user: dict = Depends(verificar_lector)):
+    username = user.get("sub")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE usuarios SET ultimo_manifiesto_id = %s WHERE username = %s",
+            (data.manifiesto_id, username)
+        )
+        conn.commit()
+        return {"message": "Manifiesto activo actualizado"}
+    finally:
+        cursor.close()
         conn.close()

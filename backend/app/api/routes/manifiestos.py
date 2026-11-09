@@ -473,9 +473,21 @@ async def comparar_manifiestos(
         hash_archivo = hashlib.md5(contenido_general).hexdigest() + "_resta"
         manifiesto_id = guardar_manifiesto(nombre_archivo, df_filtrado, resumen, hash_archivo)
 
+        from pathlib import Path
+        from app.core.config import DB_PATH
 
+        uploads_dir = Path(DB_PATH).parent / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        ruta_archivo = uploads_dir / f"manifiesto_{manifiesto_id}.xlsx"
 
-        return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df_filtrado), "provincias": resumen}
+        # Generamos el Excel del resultado (solo una hoja, para no saturar la RAM)
+        detalle = preparar_salida(df_filtrado).reset_index(drop=True)
+        with pd.ExcelWriter(ruta_archivo, engine="openpyxl") as writer:
+            detalle.to_excel(writer, sheet_name="Datos", index=False)
+
+        return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df_filtrado),
+                "provincias": resumen}
+
 
     except HTTPException as he:
         raise he

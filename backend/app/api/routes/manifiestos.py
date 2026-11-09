@@ -42,7 +42,7 @@ from app.core.database import (
     obtener_hbls,
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
-    get_db_connection
+    obtener_ruta_archivo_original
 )
 
 router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
@@ -230,76 +230,82 @@ async def actualizar_estados_masivos(data: EstadosMasivos):
     return {"status": "success", "hbls_actualizados": len(data.hbls), "estado": data.estado}
 
 # ============================================================
-# EXPORTACIONES (Ahora leen de la BD, no del archivo)
+# EXPORTACIONES (Volvemos a leer del archivo físico)
 # ============================================================
 
 @router.post("/exportar-por-id/{manifiesto_id}/{provincia}")
 async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, provincia=provincia)
-    hbls = datos["hbls"]
-    if not hbls: raise HTTPException(status_code=404, detail="Provincia no encontrada o sin datos")
+    ruta = obtener_ruta_archivo_original(manifiesto_id)
+    if not Path(ruta).exists():
+        raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+    with open(ruta, "rb") as f: contenido = f.read()
 
-    df = pd.DataFrame(hbls)
-    df = df.rename(columns={
-        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, "direccion": COL_DIRECCION,
-        "remitente": "Nombre y Apellidos del REMITENTE:", "destinatario": "Nombre y Apellidos del DESTINATARIO:",
-        "telefono": "Teléfono del DESTINATARIO", "contenido": "Contenido del paquete (Descripción)",
-        "bultos": COL_BULTOS, "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
-    })
-    excel_bytes = exportar_provincia_excel(df)
+    df = cargar_excel(contenido, None)
+    df, _ = aplicar_mapeo_columnas(df)
+    df, _ = limpiar_manifiesto(df)
+    df = marcar_paradas(df)
+    df = enriquecer_df_con_estados(df)
+
+    df_prov = df[df[COL_PROVINCIA] == provincia]
+    if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
+
+    excel_bytes = exportar_provincia_excel(df_prov)
     meta = obtener_manifiesto(manifiesto_id)
     nombre_base = meta["nombre_archivo"].replace(".xlsx", "").replace(".xls", "") if meta else str(manifiesto_id)
     return Response(content=excel_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="manifiesto_{provincia}_{nombre_base}.xlsx"'})
 
 @router.post("/exportar-ruta-por-id/{manifiesto_id}/{provincia}")
 async def exportar_ruta_por_id(manifiesto_id: int, provincia: str):
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, provincia=provincia)
-    hbls = datos["hbls"]
-    if not hbls: raise HTTPException(status_code=404, detail="Provincia no encontrada o sin datos")
+    ruta = obtener_ruta_archivo_original(manifiesto_id)
+    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+    with open(ruta, "rb") as f: contenido = f.read()
 
-    df = pd.DataFrame(hbls)
-    df = df.rename(columns={
-        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, "direccion": COL_DIRECCION,
-        "remitente": "Nombre y Apellidos del REMITENTE:", "destinatario": "Nombre y Apellidos del DESTINATARIO:",
-        "telefono": "Teléfono del DESTINATARIO", "contenido": "Contenido del paquete (Descripción)",
-        "bultos": COL_BULTOS, "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
-    })
-    excel_bytes = exportar_hoja_ruta_excel(df)
+    df = cargar_excel(contenido, None)
+    df, _ = aplicar_mapeo_columnas(df)
+    df, _ = limpiar_manifiesto(df)
+    df = marcar_paradas(df)
+    df = enriquecer_df_con_estados(df)
+
+    df_prov = df[df[COL_PROVINCIA] == provincia]
+    if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
+
+    excel_bytes = exportar_hoja_ruta_excel(df_prov)
     meta = obtener_manifiesto(manifiesto_id)
     nombre_base = meta["nombre_archivo"].replace(".xlsx", "").replace(".xls", "") if meta else str(manifiesto_id)
     return Response(content=excel_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="ruta_{provincia}_{nombre_base}.xlsx"'})
 
 @router.post("/exportar-municipios-por-id/{manifiesto_id}/{provincia}")
 async def exportar_municipios_por_id(manifiesto_id: int, provincia: str):
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, provincia=provincia)
-    hbls = datos["hbls"]
-    if not hbls: raise HTTPException(status_code=404, detail="Provincia no encontrada o sin datos")
+    ruta = obtener_ruta_archivo_original(manifiesto_id)
+    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+    with open(ruta, "rb") as f: contenido = f.read()
 
-    df = pd.DataFrame(hbls)
-    df = df.rename(columns={
-        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, "direccion": COL_DIRECCION,
-        "remitente": "Nombre y Apellidos del REMITENTE:", "destinatario": "Nombre y Apellidos del DESTINATARIO:",
-        "telefono": "Teléfono del DESTINATARIO", "contenido": "Contenido del paquete (Descripción)",
-        "bultos": COL_BULTOS, "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
-    })
-    excel_bytes = exportar_por_municipios_excel(df)
+    df = cargar_excel(contenido, None)
+    df, _ = aplicar_mapeo_columnas(df)
+    df, _ = limpiar_manifiesto(df)
+    df = marcar_paradas(df)
+    df = enriquecer_df_con_estados(df)
+
+    df_prov = df[df[COL_PROVINCIA] == provincia]
+    if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
+
+    excel_bytes = exportar_por_municipios_excel(df_prov)
     meta = obtener_manifiesto(manifiesto_id)
     nombre_base = meta["nombre_archivo"].replace(".xlsx", "").replace(".xls", "") if meta else str(manifiesto_id)
     return Response(content=excel_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="manifiesto_{provincia}_municipios_{nombre_base}.xlsx"'})
 
 @router.post("/exportar-todas-por-id/{manifiesto_id}")
 async def exportar_todas_por_id(manifiesto_id: int):
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999)
-    hbls = datos["hbls"]
-    if not hbls: raise HTTPException(status_code=404, detail="No hay datos para exportar")
+    ruta = obtener_ruta_archivo_original(manifiesto_id)
+    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+    with open(ruta, "rb") as f: contenido = f.read()
 
-    df = pd.DataFrame(hbls)
-    df = df.rename(columns={
-        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, "direccion": COL_DIRECCION,
-        "remitente": "Nombre y Apellidos del REMITENTE:", "destinatario": "Nombre y Apellidos del DESTINATARIO:",
-        "telefono": "Teléfono del DESTINATARIO", "contenido": "Contenido del paquete (Descripción)",
-        "bultos": COL_BULTOS, "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
-    })
+    df = cargar_excel(contenido, None)
+    df, _ = aplicar_mapeo_columnas(df)
+    df, _ = limpiar_manifiesto(df)
+    df = marcar_paradas(df)
+    df = enriquecer_df_con_estados(df)
+
     provincias = ordenar_provincias(df[COL_PROVINCIA].dropna().unique().tolist())
     excel_bytes = exportar_todas_provincias_excel(df, provincias)
     meta = obtener_manifiesto(manifiesto_id)
@@ -336,7 +342,6 @@ async def guardar_endpoint(
 
     manifiesto_id = guardar_manifiesto(file.filename, df, resumen, hash_archivo)
 
-    # Guardar archivo físico (opcional ahora, pero útil por si acaso)
     uploads_dir = Path(DB_PATH).parent / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     ruta_archivo = uploads_dir / f"manifiesto_{manifiesto_id}.xlsx"
@@ -383,7 +388,7 @@ async def eliminar_endpoint(manifiesto_id: int):
     return {"status": "success", "deleted_id": manifiesto_id}
 
 # ============================================================
-# PROVINCIA POR ID (Ahora lee de la BD)
+# PROVINCIA POR ID
 # ============================================================
 @router.post("/{manifiesto_id}/provincia/{provincia}")
 async def obtener_provincia_por_id(
@@ -393,28 +398,34 @@ async def obtener_provincia_por_id(
     estado: str = Form(""),
     ubicacion: str = Form(""),
 ):
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, busqueda=busqueda, estado=estado, provincia=provincia)
-    hbls = datos["hbls"]
+    ruta = obtener_ruta_archivo_original(manifiesto_id)
+    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+    with open(ruta, "rb") as f: contenido = f.read()
 
-    if not hbls:
-        return {"provincia": provincia, "total_paradas": 0, "total_hbls": 0, "total_hbls_sin_filtro": 0, "paradas": []}
-
-    df = pd.DataFrame(hbls)
-    df = df.rename(columns={
-        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, "direccion": COL_DIRECCION,
-        "remitente": "Nombre y Apellidos del REMITENTE:", "destinatario": "Nombre y Apellidos del DESTINATARIO:",
-        "telefono": "Teléfono del DESTINATARIO", "contenido": "Contenido del paquete (Descripción)",
-        "bultos": COL_BULTOS, "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
-    })
-
+    df = cargar_excel(contenido, None)
+    df, _ = aplicar_mapeo_columnas(df)
+    df, _ = limpiar_manifiesto(df)
     df = marcar_paradas(df)
-    resumen = resumen_paradas(df)
+    df = enriquecer_df_con_estados(df)
+
+    df_prov = df[df[COL_PROVINCIA] == provincia]
+    if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
+
+    df_filtrado = filtrar_hbls(df_prov, busqueda=busqueda, estado=estado, ubicacion=ubicacion)
+
+    if len(df_filtrado) > 0:
+        df_filtrado = marcar_paradas(df_filtrado)
+        resumen = resumen_paradas(df_filtrado)
+        total_paradas = int(df_filtrado["Paradas"].sum())
+    else:
+        resumen = pd.DataFrame(columns=["Parada", "Destinatario", "Dirección", "Municipio", "Cant HBLs", "Bultos", "Peso (Kg)"])
+        total_paradas = 0
 
     return {
         "provincia": provincia,
-        "total_paradas": int(df["Paradas"].sum()),
-        "total_hbls": len(df),
-        "total_hbls_sin_filtro": len(df), # Al traer todo de la BD, este valor es el mismo
+        "total_paradas": total_paradas,
+        "total_hbls": len(df_filtrado),
+        "total_hbls_sin_filtro": len(df_prov),
         "paradas": resumen.fillna("").to_dict(orient="records"),
     }
 
@@ -461,6 +472,16 @@ async def comparar_manifiestos(
         nombre_archivo = file_general.filename
         hash_archivo = hashlib.md5(contenido_general).hexdigest() + "_resta"
         manifiesto_id = guardar_manifiesto(nombre_archivo, df_filtrado, resumen, hash_archivo)
+
+        # Guardar el archivo físico en disco (para que las exportaciones funcionen)
+        from pathlib import Path
+        from app.core.config import DB_PATH
+        uploads_dir = Path(DB_PATH).parent / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        ruta_archivo = uploads_dir / f"manifiesto_{manifiesto_id}.xlsx"
+        detalle = preparar_salida(df_filtrado).reset_index(drop=True)
+        with pd.ExcelWriter(ruta_archivo, engine="openpyxl") as writer:
+            detalle.to_excel(writer, sheet_name="Datos", index=False)
 
         return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df_filtrado), "provincias": resumen}
 

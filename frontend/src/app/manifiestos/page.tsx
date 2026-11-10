@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Cookies from "js-cookie";
+import { Modal } from "@/components/ui/modal";
+import { AlertCircle } from "lucide-react";
 import {
   FileSpreadsheet,
   Trash2,
@@ -31,6 +33,7 @@ export default function ManifiestosPage() {
   });
   const [eliminando, setEliminando] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [manifiestoAEliminar, setManifiestoAEliminar] = useState<number | null>(null);
 
   useEffect(() => {
     setIsAdmin(Cookies.get("role") === "admin");
@@ -40,18 +43,17 @@ export default function ManifiestosPage() {
     await seleccionarManifiesto(id);
   };
 
-  const handleEliminar = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    if (!confirm("¿Eliminar este manifiesto? Esta acción no se puede deshacer.")) {
-      return;
-    }
-    setEliminando(id);
+  const handleEliminar = async () => {
+    if (!manifiestoAEliminar) return;
+
+    setEliminando(manifiestoAEliminar);
     try {
-      await eliminarManifiestoPorId(id);
+      await eliminarManifiestoPorId(manifiestoAEliminar);
     } catch (err) {
       alert("Error al eliminar el manifiesto");
     } finally {
       setEliminando(null);
+      setManifiestoAEliminar(null); // Cerramos el modal
     }
   };
 
@@ -139,14 +141,17 @@ export default function ManifiestosPage() {
                       </h3>
                     </div>
                     {isAdmin && (
-                      <button
-                        onClick={(e) => handleEliminar(e, m.id)}
-                        disabled={eliminando === m.id}
-                        className="p-1.5 rounded-lg hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors flex-shrink-0 disabled:opacity-50"
-                        title="Eliminar manifiesto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setManifiestoAEliminar(m.id);
+                            }}
+                            disabled={eliminando === m.id}
+                            className="p-1.5 rounded-lg hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors flex-shrink-0 disabled:opacity-50"
+                            title="Eliminar manifiesto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                     )}
                   </div>
 
@@ -200,6 +205,35 @@ export default function ManifiestosPage() {
           </div>
         )}
       </div>
+
+      {/* MODAL PARA ELIMINAR MANIFIESTO */}
+      <Modal
+          isOpen={manifiestoAEliminar !== null}
+          onClose={() => setManifiestoAEliminar(null)}
+          title="Eliminar manifiesto"
+      >
+        <div className="flex flex-col items-center text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-red-500" />
+          <p className="text-slate-600">
+            ¿Estás seguro de que quieres eliminar este manifiesto? Esta acción no se puede deshacer y se borrarán todos sus datos.
+          </p>
+          <div className="flex justify-end gap-3 w-full mt-4">
+            <button
+                onClick={() => setManifiestoAEliminar(null)}
+                className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+                onClick={handleEliminar}
+                disabled={eliminando !== null}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {eliminando ? "Eliminando..." : "Eliminar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </main>
   );
 }

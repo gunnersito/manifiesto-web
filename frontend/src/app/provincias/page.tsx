@@ -197,21 +197,46 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
           </summary>
 
           <div className="p-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Filtro</Label>
-                <Input placeholder="orden, cliente, descripción" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+            {/* 👇 Usamos grid de 4 columnas igual que en Registros 👇 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+              {/* 1. Filtro de Búsqueda */}
+              <div className="w-full min-w-0">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Filtro
+                </label>
+                <Input
+                    placeholder="HBL, remitente, destinatario..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="!h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Ubicación</Label>
-                <AutocompleteUbicacion value={ubicacion} onChange={setUbicacion} opciones={[...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))).sort()] as string[]} placeholder="todas las ubicaciones" />
+
+              {/* 2. Filtro de Ubicación */}
+              <div className="w-full min-w-0 md:col-span-2"> {/* 👈 Ocupa 2 columnas para que se vea más ancho */}
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Provincia / Municipio
+                </label>
+                <AutocompleteUbicacion
+                    values={ubicacion ? [ubicacion] : []}
+                    onChange={(vals) => setUbicacion(vals[0] || "")}
+                    opciones={[...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))).sort()] as string[]}
+                    placeholder="todas las ubicaciones"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Estado</Label>
+
+              {/* 3. Filtro de Estado */}
+              <div className="w-full min-w-0">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Estado
+                </label>
                 <Select value={estado || "todos"} onValueChange={(v) => setEstado(v === "todos" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="todos los estados" /></SelectTrigger>
+                  <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <SelectValue placeholder="todos" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">todos los estados</SelectItem>
+                    <SelectItem value="todos">todos</SelectItem>
                     <SelectItem value="Pendiente">Pendiente</SelectItem>
                     <SelectItem value="Despachada">Despachada</SelectItem>
                     <SelectItem value="Devuelto Almacén">Devuelto Almacén</SelectItem>
@@ -219,6 +244,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                   </SelectContent>
                 </Select>
               </div>
+
             </div>
           </div>
         </details>

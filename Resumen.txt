@@ -125,3 +125,28 @@ Estado: DESPLEGADO EN PRODUCCIÓN 🚀
 - Plan gratuito de Render: El backend "duerme" tras 15 min de inactividad. La primera carga puede tardar hasta 50 segundos. Es normal.
 - La URL de producción es la de Vercel (manifiesto-web...). No compartas las URLs de "Preview" (las que tienen números aleatorios).
 ==================================================
+
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: EN PRODUCCIÓN Y PULIENDO DETALLES
+==================================================
+
+1. INFRAESTRUCTURA (Nube)
+- Base de Datos: Supabase (PostgreSQL).
+- Backend: Render (FastAPI).
+- Frontend: Vercel (Next.js).
+- Persistencia de sesión: El sistema guarda el último manifiesto seleccionado por usuario en la base de datos para que no tengan que volver a elegirlo.
+
+2. LO QUE HEMOS HECHO HOY
+- Subida de manifiestos: Ahora el botón "Subir y Procesar" llama a la ruta /guardar (en lugar de /upload), lo que asegura que los datos se guarden en Supabase y aparezcan en la lista. Se arregló el modal de éxito para que no se cierre solo.
+- Comparación de manifiestos: El backend se optimizó para no colapsar por falta de memoria en Render. Ahora guarda una sola hoja de Excel en la carpeta uploads para que las exportaciones funcionen sin leer toda la base de datos.
+- Modales Nativos: Se creó un componente Modal usando la etiqueta nativa <dialog> de HTML (sin librerías externas). Se implementó en Configuración (para eliminar usuarios) y en Manifiestos (para eliminar manifiestos). El modal está centrado y tiene fondo desenfocado.
+- Filtros: Se igualó el diseño de los filtros en la sección Provincias al de Registros (4 columnas, alturas exactas de 42px y alineación perfecta).
+- Limpieza: Se eliminaron los alert() y confirm() nativos del navegador en las acciones principales, reemplazándolos por los nuevos modales.
+
+3. PENDIENTES / PRÓXIMOS PASOS
+- Aplicar el modal nativo a otras acciones (como confirmar la subida, alertas de error, etc.).
+- Revisar el problema de "Failed to fetch" o "Network Error" al exportar Excel muy grandes (se solucionó guardando el archivo físico en uploads, pero si Render se reinicia, se pierde).
+- Pulir detalles visuales que puedan ir apareciendo.
+==================================================

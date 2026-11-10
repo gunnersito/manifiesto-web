@@ -1,17 +1,17 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-from app.core.config import SECRET_KEY, ALGORITHM
-from typing import Optional
+from app.core.config import SECRET_KEY, ALGORITHM, SUPABASE_URL, SUPABASE_KEY
+from typing import Optional, List
 from fastapi.responses import Response
 from io import BytesIO
-from typing import List
 from pathlib import Path
 import hashlib
 
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
+from supabase import create_client, Client
 
 from app.core.config import DB_PATH, COL_PROVINCIA, UMBRAL_SIMILITUD, COL_MUNICIPIO, COL_DIRECCION, COL_HBL, COL_BULTOS, ESTADOS
 from app.services.excel_parser import (
@@ -46,6 +46,9 @@ from app.core.database import (
 )
 
 router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
+
+# Inicializamos el cliente de Supabase
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 security = HTTPBearer()
 
@@ -230,16 +233,20 @@ async def actualizar_estados_masivos(data: EstadosMasivos):
     return {"status": "success", "hbls_actualizados": len(data.hbls), "estado": data.estado}
 
 # ============================================================
-# EXPORTACIONES (Volvemos a leer del archivo físico)
+# EXPORTACIONES (Leyendo desde Supabase Storage)
 # ============================================================
+
+def descargar_archivo_supabase(manifiesto_id: int) -> bytes:
+    nombre_archivo_storage = f"manifiesto_{manifiesto_id}.xlsx"
+    try:
+        res = supabase.storage.from_("manifiestos").download(nombre_archivo_storage)
+        return res
+    except Exception:
+        raise HTTPException(status_code=404, detail="Archivo original no encontrado en Supabase Storage")
 
 @router.post("/exportar-por-id/{manifiesto_id}/{provincia}")
 async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
-    ruta = obtener_ruta_archivo_original(manifiesto_id)
-    if not Path(ruta).exists():
-        raise HTTPException(status_code=404, detail="Archivo original no encontrado")
-    with open(ruta, "rb") as f: contenido = f.read()
-
+    contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
@@ -256,10 +263,7 @@ async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-ruta-por-id/{manifiesto_id}/{provincia}")
 async def exportar_ruta_por_id(manifiesto_id: int, provincia: str):
-    ruta = obtener_ruta_archivo_original(manifiesto_id)
-    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
-    with open(ruta, "rb") as f: contenido = f.read()
-
+    contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
@@ -276,10 +280,7 @@ async def exportar_ruta_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-municipios-por-id/{manifiesto_id}/{provincia}")
 async def exportar_municipios_por_id(manifiesto_id: int, provincia: str):
-    ruta = obtener_ruta_archivo_original(manifiesto_id)
-    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
-    with open(ruta, "rb") as f: contenido = f.read()
-
+    contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
@@ -296,10 +297,7 @@ async def exportar_municipios_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-todas-por-id/{manifiesto_id}")
 async def exportar_todas_por_id(manifiesto_id: int):
-    ruta = obtener_ruta_archivo_original(manifiesto_id)
-    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
-    with open(ruta, "rb") as f: contenido = f.read()
-
+    contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
@@ -342,10 +340,20 @@ async def guardar_endpoint(
 
     manifiesto_id = guardar_manifiesto(file.filename, df, resumen, hash_archivo)
 
-    uploads_dir = Path(DB_PATH).parent / "uploads"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    ruta_archivo = uploads_dir / f"manifiesto_{manifiesto_id}.xlsx"
-    with open(ruta_archivo, "wb") as f: f.write(contenido)
+    # Guardar en Supabase Storage
+    nombre_archivo_storage = f"manifiesto_{manifiesto_id}.xlsx"
+    try:
+        supabase.storage.from_("manifiestos").upload(
+            path=nombre_archivo_storage,
+            file=contenido,
+            file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+        )
+    except Exception:
+        supabase.storage.from_("manifiestos").update(
+            path=nombre_archivo_storage,
+            file=contenido,
+            file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+        )
 
     return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df), "provincias": resumen}
 
@@ -383,7 +391,15 @@ async def obtener_endpoint(manifiesto_id: int):
 
 @router.delete("/{manifiesto_id}", dependencies=[Depends(verificar_admin)])
 async def eliminar_endpoint(manifiesto_id: int):
+    # Eliminar de la base de datos
     exito = eliminar_manifiesto(manifiesto_id)
+
+    # Eliminar de Supabase Storage
+    try:
+        supabase.storage.from_("manifiestos").remove([f"manifiesto_{manifiesto_id}.xlsx"])
+    except Exception as e:
+        print(f"Error al eliminar archivo de Storage: {e}")
+
     if not exito: raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
     return {"status": "success", "deleted_id": manifiesto_id}
 
@@ -398,10 +414,7 @@ async def obtener_provincia_por_id(
     estado: str = Form(""),
     ubicacion: str = Form(""),
 ):
-    ruta = obtener_ruta_archivo_original(manifiesto_id)
-    if not Path(ruta).exists(): raise HTTPException(status_code=404, detail="Archivo original no encontrado")
-    with open(ruta, "rb") as f: contenido = f.read()
-
+    contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
@@ -473,21 +486,32 @@ async def comparar_manifiestos(
         hash_archivo = hashlib.md5(contenido_general).hexdigest() + "_resta"
         manifiesto_id = guardar_manifiesto(nombre_archivo, df_filtrado, resumen, hash_archivo)
 
-        from pathlib import Path
-        from app.core.config import DB_PATH
-
-        uploads_dir = Path(DB_PATH).parent / "uploads"
-        uploads_dir.mkdir(parents=True, exist_ok=True)
-        ruta_archivo = uploads_dir / f"manifiesto_{manifiesto_id}.xlsx"
-
-        # Generamos el Excel del resultado (solo una hoja, para no saturar la RAM)
+        # Generar Excel del resultado
         detalle = preparar_salida(df_filtrado).reset_index(drop=True)
-        with pd.ExcelWriter(ruta_archivo, engine="openpyxl") as writer:
+
+        # Guardar en un buffer de memoria en lugar de en disco
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
             detalle.to_excel(writer, sheet_name="Datos", index=False)
+        excel_buffer.seek(0)
+        excel_bytes = excel_buffer.read()
 
-        return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df_filtrado),
-                "provincias": resumen}
+        # Subir a Supabase Storage
+        nombre_archivo_storage = f"manifiesto_{manifiesto_id}.xlsx"
+        try:
+            supabase.storage.from_("manifiestos").upload(
+                path=nombre_archivo_storage,
+                file=excel_bytes,
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+            )
+        except Exception:
+            supabase.storage.from_("manifiestos").update(
+                path=nombre_archivo_storage,
+                file=excel_bytes,
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+            )
 
+        return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df_filtrado), "provincias": resumen}
 
     except HTTPException as he:
         raise he

@@ -1,6 +1,7 @@
 """
 Configuración global del backend.
 """
+import os
 from pathlib import Path
 
 # --- Rutas ---
@@ -83,11 +84,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 # Credenciales de los usuarios
 USUARIOS = {
     "admin": {
-        "password": "Admin123.", # Cambia esto por tu contraseña segura
+        "password": "admin.",
         "role": "admin"
     },
     "guest": {
-        "password": "guest123", # Cambia esto por la contraseña para invitados
+        "password": "guest",
         "role": "guest"
     }
 }
+
+# ============================================================
+# SUPABASE STORAGE
+# ============================================================
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")

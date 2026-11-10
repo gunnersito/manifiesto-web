@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
+import { Modal } from "@/components/ui/modal";
 
 export default function Home() {
   const router = useRouter();
@@ -17,12 +18,15 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
 
-
   // Estados para Comparar
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
   const [archivoVentas, setArchivoVentas] = useState<File | null>(null);
   const [comparando, setComparando] = useState(false);
   const [errorComparar, setErrorComparar] = useState<string | null>(null);
+
+  // Estados para el Modal de Notificación
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalContenido, setModalContenido] = useState({ titulo: "", mensaje: "", tipo: "exito" });
 
   // Guardián de seguridad
   useEffect(() => {
@@ -53,17 +57,30 @@ export default function Home() {
 
     setSubiendo(true);
     setError(null);
-    setExito(false);
 
     try {
       await subirManifiesto(archivo);
-      setExito(true);
+
+      setModalContenido({
+        titulo: "¡Manifiesto subido!",
+        mensaje: "El archivo se ha procesado y guardado correctamente en el sistema.",
+        tipo: "exito"
+      });
+      setModalAbierto(true);
+
       if (recargarLista) recargarLista();
+
       setTimeout(() => {
         router.push("/manifiestos");
-      }, 1500);
+      }, 2000);
+
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || "Error al subir el manifiesto");
+      setModalContenido({
+        titulo: "Error al subir",
+        mensaje: err.response?.data?.detail || err.message || "No se pudo procesar el archivo.",
+        tipo: "error"
+      });
+      setModalAbierto(true);
     } finally {
       setSubiendo(false);
     }
@@ -95,12 +112,26 @@ export default function Home() {
         throw new Error(errorData.detail || "Error al comparar manifiestos");
       }
 
-      alert("¡Manifiestos comparados y guardados con éxito!");
+      setModalContenido({
+        titulo: "¡Comparación exitosa!",
+        mensaje: "Se han restado los manifiestos y el resultado se ha guardado.",
+        tipo: "exito"
+      });
+      setModalAbierto(true);
+
       if (recargarLista) recargarLista();
-      router.push("/manifiestos");
+
+      setTimeout(() => {
+        router.push("/manifiestos");
+      }, 2000);
 
     } catch (err: any) {
-      setErrorComparar(err.message || "Error en la comparación");
+      setModalContenido({
+        titulo: "Error en la comparación",
+        mensaje: err.message || "Error en la comparación",
+        tipo: "error"
+      });
+      setModalAbierto(true);
     } finally {
       setComparando(false);
     }
@@ -159,21 +190,6 @@ export default function Home() {
               </div>
               <p className="text-sm text-slate-500 mt-1">Formatos soportados: .xlsx, .xls, .csv</p>
             </div>
-
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-700">{error}</div>
-              </div>
-            )}
-
-            {exito && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-green-700">¡Manifiesto subido y guardado con éxito! Redirigiendo...</div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={!archivo || subiendo}
@@ -275,8 +291,31 @@ export default function Home() {
             )}
           </button>
         </div>
-
       </div>
+      {/* MODAL DE NOTIFICACIÓN GLOBAL */}
+      <Modal
+          isOpen={modalAbierto}
+          onClose={() => setModalAbierto(false)}
+          title={modalContenido.titulo}
+      >
+        <div className="flex flex-col items-center text-center space-y-4">
+          {modalContenido.tipo === "exito" ? (
+              <CheckCircle className="w-12 h-12 text-green-500" />
+          ) : (
+              <AlertCircle className="w-12 h-12 text-red-500" />
+          )}
+          <p className="text-slate-600">{modalContenido.mensaje}</p>
+          <button
+              onClick={() => {
+                setModalAbierto(false);
+                if (modalContenido.tipo === "exito") router.push("/manifiestos");
+              }}
+              className="mt-4 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors"
+          >
+            Aceptar
+          </button>
+        </div>
+      </Modal>
     </main>
   );
 }

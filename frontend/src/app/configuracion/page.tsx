@@ -7,6 +7,7 @@ import { Trash2, UserPlus, Loader2, ShieldAlert, Edit2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [esAdmin, setEsAdmin] = useState<boolean | null>(null);
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState<string | null>(null);
 
   // Formulario de creación
   const [nuevoUser, setNuevoUser] = useState({ username: "", password: "", role: "guest" });
@@ -109,13 +111,16 @@ export default function ConfiguracionPage() {
     }
   };
 
-  const handleEliminar = async (username: string) => {
-    if (!confirm(`¿Seguro que quieres eliminar al usuario ${username}?`)) return;
+  const handleEliminar = async () => {
+    if (!usuarioAEliminar) return;
+
     try {
-      await eliminarUsuario(username);
+      await eliminarUsuario(usuarioAEliminar);
       cargarUsuarios();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Error al eliminar");
+    } finally {
+      setUsuarioAEliminar(null);
     }
   };
 
@@ -270,9 +275,9 @@ export default function ConfiguracionPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleEliminar(u.username)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar usuario"
+                            onClick={() => setUsuarioAEliminar(u.username)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar usuario"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -373,6 +378,30 @@ export default function ConfiguracionPage() {
           </div>
         </div>
       )}
+      {/* Modal de Confirmación de Eliminación */}
+      <Modal
+          isOpen={usuarioAEliminar !== null}
+          onClose={() => setUsuarioAEliminar(null)}
+          title="Confirmar eliminación"
+      >
+        <p className="text-slate-600 mb-6">
+          ¿Estás seguro de que quieres eliminar al usuario <b>{usuarioAEliminar}</b>? Esta acción no se puede deshacer.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+              onClick={() => setUsuarioAEliminar(null)}
+              className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+              onClick={handleEliminar}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+          >
+            Eliminar
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

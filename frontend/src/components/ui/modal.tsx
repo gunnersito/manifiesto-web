@@ -35,7 +35,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             ref={dialogRef}
             onClose={onClose}
             onClick={handleBackdropClick}
-            className="p-0 rounded-2xl shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm bg-transparent"
+            className="p-0 rounded-2xl shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm bg-transparent m-auto"
         >
             {/* Contenedor del modal con estilos de Tailwind */}
             <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden flex flex-col">

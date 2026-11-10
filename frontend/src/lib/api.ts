@@ -50,16 +50,15 @@ export interface UploadResponse {
 
 // --- Funciones de la API ---
 export async function subirManifiesto(
-  file: File,
-  hoja?: string,
-  umbral: number = 0.9
-): Promise<UploadResponse> {
+    file: File,
+    hoja?: string,
+    umbral: number = 0.9
+): Promise<any> { 
   const formData = new FormData();
   formData.append("file", file);
   if (hoja) formData.append("hoja", hoja);
   formData.append("umbral", umbral.toString());
-
-  const response = await api.post<UploadResponse>("/manifiestos/upload", formData, {
+  const response = await api.post("/manifiestos/guardar", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data;

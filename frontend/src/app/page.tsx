@@ -70,9 +70,6 @@ export default function Home() {
 
       if (recargarLista) recargarLista();
 
-      setTimeout(() => {
-        router.push("/manifiestos");
-      }, 2000);
 
     } catch (err: any) {
       setModalContenido({
@@ -120,11 +117,7 @@ export default function Home() {
       setModalAbierto(true);
 
       if (recargarLista) recargarLista();
-
-      setTimeout(() => {
-        router.push("/manifiestos");
-      }, 2000);
-
+      
     } catch (err: any) {
       setModalContenido({
         titulo: "Error en la comparación",

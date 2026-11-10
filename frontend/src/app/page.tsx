@@ -9,13 +9,14 @@ import { useManifiesto } from "@/contexts/ManifiestoContext";
 export default function Home() {
   const router = useRouter();
   const { recargarLista } = useManifiesto();
+  const [verificando, setVerificando] = useState(true);
 
   // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
-  const [verificando, setVerificando] = useState(true);
+
 
   // Estados para Comparar
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
@@ -25,13 +26,26 @@ export default function Home() {
 
   // Guardián de seguridad
   useEffect(() => {
+    // 1. Buscamos el token
     const token = localStorage.getItem("token");
+
+    // 2. Si no hay token (o es el falso de prueba), redirigimos AL INSTANTE
     if (!token || token === "token_falso_de_prueba") {
       router.replace("/login");
     } else {
+      // 3. Si hay token, quitamos el estado de carga
       setVerificando(false);
     }
   }, [router]);
+
+  // 4. Mientras verifica, mostramos una pantalla en blanco o un spinner
+  if (verificando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   const handleSubir = async (e: React.FormEvent) => {
     e.preventDefault();

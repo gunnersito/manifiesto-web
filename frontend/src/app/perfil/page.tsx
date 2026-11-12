@@ -7,7 +7,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api"; // Importa tu instancia de axios
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function PerfilPage() {
   const handleCambiarPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert("Las contraseñas no coinciden.");
+      toast.error("Las contraseñas no coinciden.");
       return;
     }
     setLoading(true);

@@ -6,13 +6,12 @@ import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "luc
 import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
-import { toast } from "sonner";
 import { LoadingModal } from "@/components/ui/loading-modal";
+import Cookies from "js-cookie";
 
 export default function Home() {
   const router = useRouter();
   const { recargarLista } = useManifiesto();
-  const [verificando, setVerificando] = useState(true);
 
   // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -30,27 +29,17 @@ export default function Home() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalContenido, setModalContenido] = useState({ titulo: "", mensaje: "", tipo: "exito" });
 
-  // Guardián de seguridad
+  // 👇 EL GUARDIÁN DEFINITIVO 👇
   useEffect(() => {
-    // 1. Buscamos el token
-    const token = localStorage.getItem("token");
-
-    // 2. Si no hay token (o es el falso de prueba), redirigimos AL INSTANTE
-    if (!token || token === "token_falso_de_prueba") {
+    const token = Cookies.get("token");
+    if (!token) {
       router.replace("/login");
-    } else {
-      // 3. Si hay token, quitamos el estado de carga
-      setVerificando(false);
     }
   }, [router]);
 
-  // 4. Mientras verifica, mostramos una pantalla en blanco o un spinner
-  if (verificando) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
+  // Si no hay token, no renderizamos NADA (evita el parpadeo y la entrada directa)
+  if (!Cookies.get("token")) {
+    return null;
   }
 
   const handleSubir = async (e: React.FormEvent) => {
@@ -71,7 +60,6 @@ export default function Home() {
       setModalAbierto(true);
 
       if (recargarLista) recargarLista();
-
 
     } catch (err: any) {
       setModalContenido({
@@ -98,10 +86,11 @@ export default function Home() {
       formData.append("file_ventas", archivoVentas);
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api";
+      
       const res = await fetch(`${baseUrl}/manifiestos/comparar-manifiestos`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+          "Authorization": `Bearer ${Cookies.get("token")}`
         },
         body: formData
       });
@@ -131,15 +120,6 @@ export default function Home() {
       setComparando(false);
     }
   };
-
-  if (verificando) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-slate-600">Verificando sesión...</span>
-      </div>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
@@ -287,6 +267,7 @@ export default function Home() {
           </button>
         </div>
       </div>
+      
       {/* MODAL DE NOTIFICACIÓN GLOBAL */}
       <Modal
           isOpen={modalAbierto}
@@ -311,6 +292,7 @@ export default function Home() {
           </button>
         </div>
       </Modal>
+      
       <LoadingModal
         isOpen={subiendo || comparando}
         text={subiendo ? "Subiendo y procesando el manifiesto..." : "Comparando manifiestos..."}

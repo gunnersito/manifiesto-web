@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -67,7 +68,7 @@ export default function ConfiguracionPage() {
     e.preventDefault();
 
     if (nuevoUser.password !== confirmPasswordCreate) {
-      alert("Las contraseñas no coinciden.");
+      toast.error("Las contraseñas no coinciden.");
       return;
     }
 
@@ -78,7 +79,7 @@ export default function ConfiguracionPage() {
       setConfirmPasswordCreate(""); // Limpiar
       cargarUsuarios();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al crear usuario");
+      toast.error(err.response?.data?.detail || "Error al crear usuario");
     } finally {
       setCreando(false);
     }
@@ -90,7 +91,7 @@ export default function ConfiguracionPage() {
 
     // 👇 Validación de contraseñas
     if (editPassword && editPassword !== editPasswordConfirm) {
-      alert("Las contraseñas no coinciden. Por favor, verifica.");
+      toast.error("Las contraseñas no coinciden. Por favor, verifica.");
       return; // Detiene la ejecución aquí
     }
 
@@ -105,7 +106,7 @@ export default function ConfiguracionPage() {
       setEditPasswordConfirm(""); // Limpiar también el confirm
       cargarUsuarios();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al actualizar usuario");
+      toast.error(err.response?.data?.detail || "Error al actualizar usuario");
     } finally {
       setGuardandoEdit(false);
     }
@@ -118,7 +119,7 @@ export default function ConfiguracionPage() {
       await eliminarUsuario(usuarioAEliminar);
       cargarUsuarios();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al eliminar");
+      toast.error(err.response?.data?.detail || "Error al eliminar");
     } finally {
       setUsuarioAEliminar(null);
     }

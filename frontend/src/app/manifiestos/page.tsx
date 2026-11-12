@@ -6,6 +6,7 @@ import Link from "next/link";
 import Cookies from "js-cookie";
 import { Modal } from "@/components/ui/modal";
 import { AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import {
   FileSpreadsheet,
   Trash2,
@@ -50,7 +51,7 @@ export default function ManifiestosPage() {
     try {
       await eliminarManifiestoPorId(manifiestoAEliminar);
     } catch (err) {
-      alert("Error al eliminar el manifiesto");
+      toast.error("Error al eliminar el manifiesto");
     } finally {
       setEliminando(null);
       setManifiestoAEliminar(null); // Cerramos el modal

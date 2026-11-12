@@ -1,10 +1,11 @@
-"use client"; // 👈 Necesario para usar usePathname
+"use client";
 
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { ManifiestoProvider } from "@/contexts/ManifiestoContext";
 import { usePathname } from "next/navigation";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
               <main className="flex-1 overflow-x-auto">{children}</main>
             </div>
           )}
+            <Toaster position="top-right" richColors />
         </ManifiestoProvider>
       </body>
     </html>

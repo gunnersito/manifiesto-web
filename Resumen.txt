@@ -150,3 +150,29 @@ Estado: EN PRODUCCIÓN Y PULIENDO DETALLES
 - Revisar el problema de "Failed to fetch" o "Network Error" al exportar Excel muy grandes (se solucionó guardando el archivo físico en uploads, pero si Render se reinicia, se pierde).
 - Pulir detalles visuales que puedan ir apareciendo.
 ==================================================
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: PERSISTENCIA TOTAL EN LA NUBE LOGRADA 🚀
+==================================================
+
+1. LO QUE HEMOS LOGRADO HOY (Hito histórico)
+- Migración de archivos a Supabase Storage: 
+  * Los Excels ya no se guardan en el disco temporal de Render.
+  * Ahora se suben al bucket "manifiestos" de Supabase.
+  * Aunque Render se reinicie o se duerma, los archivos están seguros en la nube.
+- Modificación exitosa del backend (manifiestos.py) para subir y descargar archivos desde Supabase.
+- Configuración correcta de las variables de entorno en Render (SUPABASE_URL y SUPABASE_KEY).
+- Se hicieron los ajustes necesarios en config.py (importar os).
+
+2. PROBLEMAS RESUELTOS EN ESTA ETAPA
+- El error "Archivo original no encontrado" al exportar o entrar a provincias.
+- La pérdida de los manifiestos al reiniciar el servidor de Render.
+- Se arregló el diseño de los filtros en Provincias (igualándolos a los de Registros).
+- Se implementó el modal nativo <dialog> para eliminar usuarios y manifiestos (centrado y elegante).
+
+3. PENDIENTES / PRÓXIMOS PASOS (Para mañana)
+- Probar a fondo la exportación de archivos después de reiniciar Render (parece que ya funciona).
+- Revisar si el modal de "Eliminar manifiesto" también podría borrar el archivo de Supabase Storage (opcional, pero recomendado para no acumular basura).
+- Pulir detalles visuales menores o añadir la funcionalidad de "Restar Manifiesto" con los modales nuevos.
+- (Opcional): Revisar el límite del plan gratuito de Supabase (1 GB de Storage). Con archivos de 100 KB, tienes espacio para miles de manifiestos.
+==================================================

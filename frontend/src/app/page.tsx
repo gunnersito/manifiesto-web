@@ -6,6 +6,7 @@ import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "luc
 import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
+import { toast } from "sonner";
 
 export default function Home() {
   const router = useRouter();

@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
+import { LoadingModal } from "@/components/ui/loading-modal";
 import {
   Download,
   Upload,
@@ -222,6 +223,10 @@ export default function ExportarPage() {
           💡 <b>Tip:</b> Los Excel exportados incluyen los estados actuales (Pendiente, Despachada, Devuelto Almacén, Entregada) que hayas marcado.
         </div>
       </div>
+      <LoadingModal
+        isOpen={exportando !== null}
+        text={`Generando el archivo Excel... Esto puede tardar unos segundos.`}
+      />
     </main>
   );
 }

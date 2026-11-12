@@ -7,6 +7,7 @@ import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
+import { LoadingModal } from "@/components/ui/loading-modal";
 
 export default function Home() {
   const router = useRouter();
@@ -310,6 +311,10 @@ export default function Home() {
           </button>
         </div>
       </Modal>
+      <LoadingModal
+        isOpen={subiendo || comparando}
+        text={subiendo ? "Subiendo y procesando el manifiesto..." : "Comparando manifiestos..."}
+      />
     </main>
   );
 }

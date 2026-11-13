@@ -391,16 +391,20 @@ async def obtener_endpoint(manifiesto_id: int):
 
 @router.delete("/{manifiesto_id}", dependencies=[Depends(verificar_admin)])
 async def eliminar_endpoint(manifiesto_id: int):
-    # Eliminar de la base de datos
+    # 1. Eliminar de la base de datos (HBLs y metadatos)
     exito = eliminar_manifiesto(manifiesto_id)
+    
+    if not exito: 
+        raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
 
-    # Eliminar de Supabase Storage
+    # 2. Eliminar el archivo físico de Supabase Storage
     try:
-        supabase.storage.from_("manifiestos").remove([f"manifiesto_{manifiesto_id}.xlsx"])
+        nombre_archivo_storage = f"manifiesto_{manifiesto_id}.xlsx"
+        supabase.storage.from_("manifiestos").remove([nombre_archivo_storage])
     except Exception as e:
-        print(f"Error al eliminar archivo de Storage: {e}")
+        # Si por alguna razón el archivo no estaba en Storage, no bloqueamos la eliminación
+        print(f"Advertencia: No se pudo borrar el archivo de Supabase: {e}")
 
-    if not exito: raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
     return {"status": "success", "deleted_id": manifiesto_id}
 
 # ============================================================

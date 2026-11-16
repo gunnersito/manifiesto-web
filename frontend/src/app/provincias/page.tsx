@@ -245,15 +245,19 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                 <AutocompleteUbicacion
                   values={ubicacion ? [ubicacion] : []}
                   onChange={(vals) => setUbicacion(vals[0] || "")}
+                  provincias={Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia)))}
                   opciones={
-                    Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia)))
-                      .sort((a: string, b: string) => {
-                        const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
-                        const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
-                        if (indexA === -1) return 1;
-                        if (indexB === -1) return -1;
-                        return indexA - indexB;
-                      }) as string[]
+                    [
+                      ...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))),
+                      ...Array.from(new Set((metadata?.resumen || []).flatMap((p: any) => p.municipios || [])))
+                    ].sort((a: string, b: string) => {
+                      const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
+                      const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
+                      if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Ambas son provincias
+                      if (indexA !== -1) return -1; // 'a' es provincia, 'b' es municipio
+                      if (indexB !== -1) return 1;  // 'a' es municipio, 'b' es provincia
+                      return a.localeCompare(b);    // Ambas son municipios, orden alfabético
+                    }) as string[]
                   }
                   placeholder="todas"
                 />
@@ -491,17 +495,23 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
               </div>
               <div className="space-y-2">
                 <Label>Ubicación</Label>
-                <AutocompleteUbicacion value={ubicacionFiltro} onChange={setUbicacionFiltro} 
-				opciones={
+                <AutocompleteUbicacion
+                  values={ubicacionFiltro ? [ubicacionFiltro] : []}
+                  onChange={(vals) => setUbicacionFiltro(vals[0] || "")}
+                  provincias={[paradas.provincia]}
+                  opciones={
                     [paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio)))]
                       .sort((a: string, b: string) => {
                         const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
                         const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
-                        if (indexA === -1) return 1;
-                        if (indexB === -1) return -1;
-                        return indexA - indexB;
+                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                        if (indexA !== -1) return -1;
+                        if (indexB !== -1) return 1;
+                        return a.localeCompare(b);
                       })
-                  } placeholder="todas" />
+                  }
+                  placeholder="todas las ubicaciones"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>

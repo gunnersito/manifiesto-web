@@ -42,6 +42,13 @@ import {
 } from "@/lib/api";
 import Dashboard from "@/components/Dashboard";
 
+const ORDEN_PROVINCIAS = [
+  "PINAR DEL RIO", "ARTEMISA", "LA HABANA", "MAYABEQUE", "MATANZAS",
+  "CIENFUEGOS", "VILLA CLARA", "SANCTI SPIRITUS", "CIEGO DE AVILA",
+  "CAMAGUEY", "LAS TUNAS", "HOLGUIN", "GRANMA", "SANTIAGO DE CUBA",
+  "GUANTANAMO", "ISLA DE LA JUVENTUD"
+];
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
@@ -238,7 +245,16 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                 <AutocompleteUbicacion
                   values={ubicacion ? [ubicacion] : []}
                   onChange={(vals) => setUbicacion(vals[0] || "")}
-                  opciones={[...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))).sort()] as string[]}
+                  opciones={
+                    Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia)))
+                      .sort((a: string, b: string) => {
+                        const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
+                        const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
+                        if (indexA === -1) return 1;
+                        if (indexB === -1) return -1;
+                        return indexA - indexB;
+                      }) as string[]
+                  }
                   placeholder="todas"
                 />
               </div>
@@ -475,7 +491,17 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
               </div>
               <div className="space-y-2">
                 <Label>Ubicación</Label>
-                <AutocompleteUbicacion value={ubicacionFiltro} onChange={setUbicacionFiltro} opciones={[paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio))).sort()]} placeholder="todas" />
+                <AutocompleteUbicacion value={ubicacionFiltro} onChange={setUbicacionFiltro} 
+				opciones={
+                    [paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio)))]
+                      .sort((a: string, b: string) => {
+                        const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
+                        const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
+                        if (indexA === -1) return 1;
+                        if (indexB === -1) return -1;
+                        return indexA - indexB;
+                      })
+                  } placeholder="todas" />
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>

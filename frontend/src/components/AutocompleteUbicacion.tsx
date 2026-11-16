@@ -22,7 +22,6 @@ export default function AutocompleteUbicacion({
   const [busqueda, setBusqueda] = useState("");
   const contenedorRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar al hacer clic fuera
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -36,13 +35,15 @@ export default function AutocompleteUbicacion({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const opcionesUnicas = Array.from(new Set(opciones));
+
   const filtradas = busqueda.trim()
-    ? opciones.filter((o) =>
+    ? opcionesUnicas.filter((o) =>
         o.toLowerCase().includes(busqueda.toLowerCase().trim())
       )
-    : opciones;
+    : opcionesUnicas;
 
-  const visibles = filtradas.slice(0, 8);
+  const visibles = busqueda.trim() ? filtradas : filtradas.slice(0, 8);
 
   const toggleSeleccion = (opcion: string) => {
     if (values.includes(opcion)) {
@@ -52,7 +53,7 @@ export default function AutocompleteUbicacion({
     }
   };
 
-  // Texto que se muestra en el botón principal
+  // Texto que se muestra en el boton principal
   const textoMostrar =
     values.length === 0
       ? placeholder

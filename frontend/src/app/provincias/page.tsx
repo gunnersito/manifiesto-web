@@ -610,9 +610,73 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
                         <td className="py-2 text-right text-slate-700">{h.bultos}</td>
                         <td className="py-2 text-right text-slate-700">{typeof h.peso === "number" ? h.peso.toFixed(2) : "—"}</td>
                         <td className="py-2 text-right">
-                          <EstadoBadge estado={h.estado} hbl={h.hbl} onChange={(nuevo) => {
+                                                    <EstadoBadge estado={h.estado} hbl={h.hbl} onChange={(nuevo) => {
                             setHbls((prev) => prev ? prev.map((item) => item.hbl === h.hbl ? { ...item, estado: nuevo } : item) : null);
                             onUpdate(nuevo);
                           }} />
                         </td>
                       </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EstadoBadge({ estado, hbl, onChange }: { estado?: string, hbl: string, onChange?: (n: string) => void }) {
+  const [valorActual, setValorActual] = useState(estado || "Pendiente");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => { if (estado) setValorActual(estado); }, [estado]);
+
+  const estados = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
+  const colores: Record<string, string> = {
+    Pendiente: "bg-slate-100 text-slate-700 border-slate-200",
+    Despachada: "bg-blue-100 text-blue-700 border-blue-200",
+    "Devuelto Almacén": "bg-red-100 text-red-700 border-red-200",
+    Entregada: "bg-green-100 text-green-700 border-green-200",
+  };
+  const color = colores[valorActual] || colores.Pendiente;
+
+  const cambiarEstado = async (nuevoEstado: string) => {
+    if (nuevoEstado === valorActual) return;
+    const anterior = valorActual;
+    setValorActual(nuevoEstado);
+    setGuardando(true);
+    try {
+      await actualizarEstado(hbl, nuevoEstado);
+      onChange?.(nuevoEstado);
+    } catch (err) {
+      console.error("Error al guardar estado:", err);
+      setValorActual(anterior);
+    } finally { setGuardando(false); }
+  };
+
+  return (
+    <div className="relative inline-flex items-center gap-1">
+      {guardando && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+      <select
+        value={valorActual}
+        onChange={(e) => cambiarEstado(e.target.value)}
+        disabled={guardando}
+        className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer outline-none appearance-none pr-6 ${color} ${guardando ? "opacity-60" : ""}`}
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 6px center",
+        }}
+      >
+        {estados.map((e) => (
+          <option key={e} value={e}>
+            {e}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

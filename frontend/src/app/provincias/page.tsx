@@ -53,10 +53,9 @@ const ORDEN_PROVINCIAS = [
 // COMPONENTE PRINCIPAL
 // ============================================================
 function ProvinciasContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const provinciaSeleccionada = searchParams.get("nombre");
-  const { metadata, manifiestoId, manifiestos, seleccionarManifiesto } = useManifiesto();
+  const { metadata, manifiestoId } = useManifiesto();
 
   if (!metadata || !manifiestoId) {
     return (
@@ -99,32 +98,34 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [ubicacion, setUbicacion] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // 👇 Traemos los manifiestos y la función para seleccionarlos 👇
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
-
-  const provinciasFiltradas: ManifiestoResumen[] = (metadata?.resumen || []).filter((p: any) => {
-    if (ubicacion && p.provincia !== ubicacion) return false;
-    return true;
-  });
 
   const aplicarFiltros = async () => {
     if (!manifiestoId) return;
     setCargando(true);
     setError(null);
     try {
-      if (busqueda || estado) {
+      if (busqueda || estado || ubicacion) {
         const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, ubicacion);
-        const resumen: Record<string, ManifiestoResumen> = {};
-        for (const h of result.hbls) {
-          if (!resumen[h.provincia]) {
-            resumen[h.provincia] = { provincia: h.provincia, hbls: 0, paradas: 0, bultos: 0 };
-          }
-          resumen[h.provincia].hbls += 1;
-          resumen[h.provincia].paradas += h.parada;
-          resumen[h.provincia].bultos += h.bultos;
+        
+        if (result.hbls.length > 0) {
+          const hblsMostrar = result.hbls.map(h => ({
+            provincia: h.provincia,
+            hbls: 1,
+            paradas: h.parada,
+            bultos: h.bultos,
+            municipio: h.municipio,
+            direccion: h.direccion,
+            destinatario: h.destinatario,
+            hbl: h.hbl,
+            esHBL: true
+          }));
+          (metadata as any)._resumenFiltrado = hblsMostrar;
+        } else {
+          (metadata as any)._resumenFiltrado = [];
         }
-        (metadata as any)._resumenFiltrado = Object.values(resumen);
+      } else {
+        (metadata as any)._resumenFiltrado = null;
       }
     } catch (err: any) {
       setError(err.message || "Error al aplicar filtros");
@@ -137,12 +138,23 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     setBusqueda("");
     setEstado("");
     setUbicacion("");
-    if (metadata) (metadata as any)._resumenFiltrado = null;
+    if (metadata) {
+      (metadata as any)._resumenFiltrado = null;
+    }
   };
 
-  const provinciasAMostrar = (metadata as any)._resumenFiltrado || provinciasFiltradas;
-  const totalHBLs = provinciasAMostrar.reduce((s: number, p: ManifiestoResumen) => s + p.hbls, 0);
-  const totalParadas = provinciasAMostrar.reduce((s: number, p: ManifiestoResumen) => s + p.paradas, 0);
+  // Verificamos si el resultado filtrado es un array de HBLs o de Provincias
+  const datosFiltrados = (metadata as any)._resumenFiltrado;
+  const sonHBLs = datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
+
+  const provinciasFiltradas: ManifiestoResumen[] = (metadata?.resumen || []).filter((p: any) => {
+    if (ubicacion && p.provincia !== ubicacion) return false;
+    return true;
+  });
+
+  const provinciasAMostrar = sonHBLs ? datosFiltrados : (datosFiltrados || provinciasFiltradas);
+  const totalHBLs = provinciasAMostrar.reduce((s: number, p: any) => s + (p.hbls || 0), 0);
+  const totalParadas = provinciasAMostrar.reduce((s: number, p: any) => s + (p.paradas || 0), 0);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
@@ -176,7 +188,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
             <Metric label="Total HBLs" value={totalHBLs} />
             <Metric label="Provincias" value={provinciasAMostrar.length} />
             <Metric label="Paradas totales" value={totalParadas} />
-            <Metric label="Bultos totales" value={provinciasAMostrar.reduce((s: number, p: ManifiestoResumen) => s + p.bultos, 0)} />
+            <Metric label="Bultos totales" value={provinciasAMostrar.reduce((s: number, p: any) => s + (p.bultos || 0), 0)} />
           </div>
         </div>
 
@@ -200,14 +212,10 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
           </summary>
 
           <div className="p-4 border-t border-slate-200">
-            {/* 👇 GRID DE 5 COLUMNAS PARA QUE QUEPA EL SELECTOR 👇 */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               
-              {/* 1. Selector de Manifiesto */}
               <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Manifiesto
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto</label>
                 <select
                   value={manifiestoId || ""}
                   onChange={async (e) => {
@@ -224,11 +232,8 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                 </select>
               </div>
 
-              {/* 2. Filtro de Búsqueda */}
               <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Filtro
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Filtro</label>
                 <Input
                   placeholder="HBL, remitente..."
                   value={busqueda}
@@ -237,11 +242,8 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                 />
               </div>
 
-              {/* 3. Filtro de Ubicación */}
               <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Ubicación
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ubicación</label>
                 <AutocompleteUbicacion
                   values={ubicacion ? [ubicacion] : []}
                   onChange={(vals) => setUbicacion(vals[0] || "")}
@@ -253,21 +255,18 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                     ].sort((a: string, b: string) => {
                       const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
                       const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
-                      if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Ambas son provincias
-                      if (indexA !== -1) return -1; // 'a' es provincia, 'b' es municipio
-                      if (indexB !== -1) return 1;  // 'a' es municipio, 'b' es provincia
-                      return a.localeCompare(b);    // Ambas son municipios, orden alfabético
+                      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                      if (indexA !== -1) return -1;
+                      if (indexB !== -1) return 1;
+                      return a.localeCompare(b);
                     }) as string[]
                   }
                   placeholder="todas"
                 />
               </div>
 
-              {/* 4. Filtro de Estado */}
               <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Estado
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
                 <Select value={estado || "todos"} onValueChange={(v) => setEstado(v === "todos" ? "" : v)}>
                   <SelectTrigger className="w-full !h-[42px] bg-white">
                     <SelectValue placeholder="todos" />
@@ -287,11 +286,31 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Resumen por provincia</h3>
-          <p className="text-sm text-slate-500 mb-4">Haz clic en una provincia para ver sus paradas</p>
+          <p className="text-sm text-slate-500 mb-4">
+            {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
+          </p>
 
           {provinciasAMostrar.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">No hay provincias que coincidan con los filtros.</div>
+            <div className="text-center py-12 text-slate-500">No hay resultados que coincidan con los filtros.</div>
+          ) : sonHBLs ? (
+            // 👇 SI SON HBLs, MOSTRAMOS LAS TARJETAS DE HBL 👇
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {provinciasAMostrar.map((h: any) => (
+                <div key={h.hbl} className="border border-slate-200 rounded-lg p-4 bg-white hover:border-blue-400 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-blue-700 font-mono">{h.hbl}</div>
+                  </div>
+                  <div className="text-sm font-medium text-slate-900 truncate">{h.destinatario || "—"}</div>
+                  <div className="text-xs text-slate-500 truncate mt-1">{h.direccion}</div>
+                  <div className="flex gap-2 mt-3 text-xs">
+                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{h.municipio}</span>
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">{h.provincia}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // 👇 SI SON PROVINCIAS, MOSTRAMOS LAS TARJETAS DE PROVINCIA 👇
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {provinciasAMostrar.map((p: ManifiestoResumen) => (
                 <Link
@@ -465,14 +484,10 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
             </div>
           </summary>
           <div className="p-4 border-t border-slate-200">
-            {/* 👇 GRID DE 4 COLUMNAS PARA EL DETALLE 👇 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               
-              {/* Selector de Manifiesto en Detalle */}
               <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Manifiesto
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto</label>
                 <select
                   value={manifiestoId || ""}
                   onChange={async (e) => {
@@ -575,7 +590,6 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
   const [hbls, setHbls] = useState<HBLRegistro[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [marcandoTodas, setMarcandoTodas] = useState(false);
-
   const toggleExpand = async () => {
     if (expanded) { setExpanded(false); return; }
     setExpanded(true);
@@ -609,7 +623,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
             </div>
             <p className="text-sm text-slate-600 truncate">{parada["Dirección"]}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{parada.Municipio}</p>
+			<p className="text-xs text-slate-500 mt-0.5">{parada.Municipio}</p>
           </div>
           <div className="flex gap-3 text-sm flex-shrink-0 text-center">
             <div><div className="font-bold text-slate-900">{parada["Cant HBLs"]}</div><div className="text-xs text-slate-500">HBLs</div></div>
@@ -646,7 +660,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
                         <td className="py-2 text-right text-slate-700">{h.bultos}</td>
                         <td className="py-2 text-right text-slate-700">{typeof h.peso === "number" ? h.peso.toFixed(2) : "—"}</td>
                         <td className="py-2 text-right">
-                                                    <EstadoBadge estado={h.estado} hbl={h.hbl} onChange={(nuevo) => {
+                          <EstadoBadge estado={h.estado} hbl={h.hbl} onChange={(nuevo) => {
                             setHbls((prev) => prev ? prev.map((item) => item.hbl === h.hbl ? { ...item, estado: nuevo } : item) : null);
                             onUpdate(nuevo);
                           }} />
@@ -715,4 +729,4 @@ function EstadoBadge({ estado, hbl, onChange }: { estado?: string, hbl: string, 
       </select>
     </div>
   );
-}
+}        

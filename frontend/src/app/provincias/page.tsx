@@ -43,15 +43,13 @@ import {
 import Dashboard from "@/components/Dashboard";
 
 // ============================================================
-// COMPONENTE PRINCIPAL (INTERNO)
+// COMPONENTE PRINCIPAL
 // ============================================================
 function ProvinciasContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Leemos la provincia de la URL (?nombre=...)
   const provinciaSeleccionada = searchParams.get("nombre");
-  const { metadata, manifiestoId } = useManifiesto();
+  const { metadata, manifiestoId, manifiestos, seleccionarManifiesto } = useManifiesto();
 
   if (!metadata || !manifiestoId) {
     return (
@@ -70,18 +68,13 @@ function ProvinciasContent() {
     );
   }
 
-  // Si hay una provincia en la URL, mostramos el detalle
   if (provinciaSeleccionada) {
     return <DetalleProvincia provincia={provinciaSeleccionada} manifiestoId={manifiestoId} metadata={metadata} />;
   }
 
-  // Si no hay provincia en la URL, mostramos las tarjetas (Resumen)
   return <ResumenProvincias manifiestoId={manifiestoId} metadata={metadata} />;
 }
 
-// ============================================================
-// EXPORTACIÓN CON SUSPENSE
-// ============================================================
 export default function ProvinciasPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando provincias...</div>}>
@@ -99,6 +92,9 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [ubicacion, setUbicacion] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 👇 Traemos los manifiestos y la función para seleccionarlos 👇
+  const { manifiestos, seleccionarManifiesto } = useManifiesto();
 
   const provinciasFiltradas: ManifiestoResumen[] = (metadata?.resumen || []).filter((p: any) => {
     if (ubicacion && p.provincia !== ubicacion) return false;
@@ -197,42 +193,63 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
           </summary>
 
           <div className="p-4 border-t border-slate-200">
-            {/* 👇 Usamos grid de 4 columnas igual que en Registros 👇 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {/* 👇 GRID DE 5 COLUMNAS PARA QUE QUEPA EL SELECTOR 👇 */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              
+              {/* 1. Selector de Manifiesto */}
+              <div className="w-full min-w-0">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Manifiesto
+                </label>
+                <select
+                  value={manifiestoId || ""}
+                  onChange={async (e) => {
+                    const nuevoId = Number(e.target.value);
+                    if (nuevoId) await seleccionarManifiesto(nuevoId);
+                  }}
+                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {manifiestos.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre_archivo}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              {/* 1. Filtro de Búsqueda */}
+              {/* 2. Filtro de Búsqueda */}
               <div className="w-full min-w-0">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Filtro
                 </label>
                 <Input
-                    placeholder="HBL, remitente, destinatario..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                    className="!h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  placeholder="HBL, remitente..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="!h-[42px] bg-white"
                 />
               </div>
 
-              {/* 2. Filtro de Ubicación */}
-              <div className="w-full min-w-0 md:col-span-2"> {/* 👈 Ocupa 2 columnas para que se vea más ancho */}
+              {/* 3. Filtro de Ubicación */}
+              <div className="w-full min-w-0">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Provincia / Municipio
+                  Ubicación
                 </label>
                 <AutocompleteUbicacion
-                    values={ubicacion ? [ubicacion] : []}
-                    onChange={(vals) => setUbicacion(vals[0] || "")}
-                    opciones={[...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))).sort()] as string[]}
-                    placeholder="todas las ubicaciones"
+                  values={ubicacion ? [ubicacion] : []}
+                  onChange={(vals) => setUbicacion(vals[0] || "")}
+                  opciones={[...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))).sort()] as string[]}
+                  placeholder="todas"
                 />
               </div>
 
-              {/* 3. Filtro de Estado */}
+              {/* 4. Filtro de Estado */}
               <div className="w-full min-w-0">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Estado
                 </label>
                 <Select value={estado || "todos"} onValueChange={(v) => setEstado(v === "todos" ? "" : v)}>
-                  <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <SelectTrigger className="w-full !h-[42px] bg-white">
                     <SelectValue placeholder="todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -244,7 +261,6 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                   </SelectContent>
                 </Select>
               </div>
-
             </div>
           </div>
         </details>
@@ -295,6 +311,8 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
   const [totalSinFiltro, setTotalSinFiltro] = useState(0);
+  
+  const { manifiestos, seleccionarManifiesto } = useManifiesto();
 
   useEffect(() => {
     cargarParadas();
@@ -427,21 +445,46 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
             </div>
           </summary>
           <div className="p-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 👇 GRID DE 4 COLUMNAS PARA EL DETALLE 👇 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              
+              {/* Selector de Manifiesto en Detalle */}
+              <div className="w-full min-w-0">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Manifiesto
+                </label>
+                <select
+                  value={manifiestoId || ""}
+                  onChange={async (e) => {
+                    const nuevoId = Number(e.target.value);
+                    if (nuevoId) await seleccionarManifiesto(nuevoId);
+                  }}
+                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {manifiestos.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre_archivo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-2">
                 <Label>Filtro</Label>
-                <Input placeholder="orden, cliente, descripción" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+                <Input placeholder="HBL, cliente..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="!h-[42px]" />
               </div>
               <div className="space-y-2">
                 <Label>Ubicación</Label>
-                <AutocompleteUbicacion value={ubicacionFiltro} onChange={setUbicacionFiltro} opciones={[paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio))).sort()]} placeholder="todas las ubicaciones" />
+                <AutocompleteUbicacion value={ubicacionFiltro} onChange={setUbicacionFiltro} opciones={[paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio))).sort()]} placeholder="todas" />
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select value={estadoFiltro || "todos"} onValueChange={(v) => setEstadoFiltro(v === "todos" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="todos los estados" /></SelectTrigger>
+                  <SelectTrigger className="w-full !h-[42px] bg-white">
+                    <SelectValue placeholder="todos" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">todos los estados</SelectItem>
+                    <SelectItem value="todos">todos</SelectItem>
                     <SelectItem value="Pendiente">Pendiente</SelectItem>
                     <SelectItem value="Despachada">Despachada</SelectItem>
                     <SelectItem value="Devuelto Almacén">Devuelto Almacén</SelectItem>
@@ -573,67 +616,3 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
                           }} />
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EstadoBadge({ estado, hbl, onChange }: { estado?: string, hbl: string, onChange?: (n: string) => void }) {
-  const [valorActual, setValorActual] = useState(estado || "Pendiente");
-  const [guardando, setGuardando] = useState(false);
-
-  useEffect(() => { if (estado) setValorActual(estado); }, [estado]);
-
-  const estados = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
-  const colores: Record<string, string> = {
-    Pendiente: "bg-slate-100 text-slate-700 border-slate-200",
-    Despachada: "bg-blue-100 text-blue-700 border-blue-200",
-    "Devuelto Almacén": "bg-red-100 text-red-700 border-red-200",
-    Entregada: "bg-green-100 text-green-700 border-green-200",
-  };
-  const color = colores[valorActual] || colores.Pendiente;
-
-  const cambiarEstado = async (nuevoEstado: string) => {
-    if (nuevoEstado === valorActual) return;
-    const anterior = valorActual;
-    setValorActual(nuevoEstado);
-    setGuardando(true);
-    try {
-      await actualizarEstado(hbl, nuevoEstado);
-      onChange?.(nuevoEstado);
-    } catch (err) {
-      console.error("Error al guardar estado:", err);
-      setValorActual(anterior);
-    } finally { setGuardando(false); }
-  };
-
-  return (
-    <div className="relative inline-flex items-center gap-1">
-      {guardando && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
-      <select
-        value={valorActual}
-        onChange={(e) => cambiarEstado(e.target.value)}
-        disabled={guardando}
-        className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer outline-none appearance-none pr-6 ${color} ${guardando ? "opacity-60" : ""}`}
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right 6px center",
-        }}
-      >
-        {estados.map((e) => (
-          <option key={e} value={e}>
-            {e}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}

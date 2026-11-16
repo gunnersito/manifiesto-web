@@ -176,3 +176,61 @@ Estado: PERSISTENCIA TOTAL EN LA NUBE LOGRADA 🚀
 - Pulir detalles visuales menores o añadir la funcionalidad de "Restar Manifiesto" con los modales nuevos.
 - (Opcional): Revisar el límite del plan gratuito de Supabase (1 GB de Storage). Con archivos de 100 KB, tienes espacio para miles de manifiestos.
 ==================================================
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: EN PRODUCCIÓN Y MEJORANDO UI/UX
+==================================================
+
+1. INFRAESTRUCTURA Y PERSISTENCIA (Logros recientes)
+- Supabase Storage: Los archivos Excel ya NO se guardan en el disco temporal de Render. Ahora se suben al bucket "manifiestos" de Supabase.
+- El backend (manifiestos.py) fue modificado para:
+  * Subir el archivo a Supabase al guardar un manifiesto.
+  * Descargar el archivo desde Supabase al exportar o consultar provincias.
+  * (En proceso): Borrar el archivo de Supabase al eliminar un manifiesto.
+- Variables de entorno en Render: SUPABASE_URL y SUPABASE_KEY (Secret key) configuradas. 
+- config.py: Se añadió el import de "os" para leer las variables de entorno.
+
+2. MEJORAS DE INTERFAZ (Completadas hoy)
+- Notificaciones Toasts: Se instaló la librería "sonner". Los "alert()" del navegador fueron reemplazados por notificaciones elegantes (ej. contraseñas no coinciden, errores al crear usuario). El <Toaster /> está en el layout.tsx.
+- Ojito de contraseña: Funciona en Crear Usuario, Editar Usuario y Mi Perfil.
+- Modal de Carga (Spinner): Se creó el componente LoadingModal para bloquear la pantalla al subir o comparar archivos, evitando dobles clics.
+- Modales Nativos: Se usa la etiqueta <dialog> para confirmar eliminaciones (usuarios y manifiestos).
+- Guardián de Sesión: Se corrigió el archivo page.tsx. Ahora lee la cookie "token". Si no existe, redirige al /login. (Comprobado en ventana de incógnito: funciona perfecto).
+- Filtros: Se igualó el diseño de los filtros en Provincias al de Registros.
+
+3. LO QUE ESTAMOS HACIENDO AHORA (Siguiente paso)
+- Paso 2.1: Modificar la función eliminar_endpoint en manifiestos.py para que, al eliminar un manifiesto, también borre el archivo .xlsx de Supabase Storage.
+
+4. PENDIENTES (Para después)
+- Exportación combinada: Añadir un botón para exportar un manifiesto completo con todos los estados actualizados.
+- Dashboard: Implementar gráficos (Recharts) para ver entregas por estado, provincia o día.
+- Seguridad Frontend: Añadir temporizador de inactividad para cerrar sesión automáticamente.
+- Limpieza: Corregir los warnings de ESLint/TypeScript que Vercel ignoró.
+- Subida de archivos: Asegurar que los archivos se guarden correctamente con el hash para no duplicar en la nube.
+==================================================
+
+==================================================
+RESUMEN DE PROGRESO - PROYECTO MANIFIESTO-WEB
+Estado: EN PRODUCCIÓN Y MEJORANDO DETALLES
+==================================================
+
+1. LO QUE HEMOS HECHO HOY
+- Guardián de sesión: Se arregló page.tsx. Ahora, si no hay cookie de sesión, redirige al login al instante. (Comprobado en incógnito: funciona perfecto).
+- Notificaciones (Toasts): Se instaló "sonner" y se reemplazaron los alerts nativos en Configuración, Manifiestos y Mi Perfil por toasts elegantes.
+- Ojito de contraseña: Funciona en Crear, Editar y Mi Perfil.
+- Modal de Carga: Se creó LoadingModal para bloquear la pantalla al exportar o subir archivos.
+- Modales Nativos: Se usa el componente <Modal> para confirmar eliminaciones (usuarios y manifiestos).
+- Filtros: Se igualó el diseño de Provincias al de Registros.
+- Se resolvió un error externo (API de remesas) cambiando "DOLLAR" por "USD".
+
+2. LO QUE ESTAMOS HACIENDO AHORA (Paso 2.1)
+- Modificar la función eliminar_endpoint en backend/app/api/routes/manifiestos.py para que, al eliminar un manifiesto, también borre el archivo .xlsx del bucket "manifiestos" en Supabase Storage. 
+- (El código ya te lo pasé, falta guardarlo, hacer git push y probar en Render).
+
+3. PENDIENTES (Para mañana)
+- Probar el borrado de archivos en Supabase.
+- Exportación combinada (un botón para exportar todo el manifiesto con los estados actualizados).
+- Dashboard con gráficos.
+- Cerrar sesión por inactividad.
+==================================================

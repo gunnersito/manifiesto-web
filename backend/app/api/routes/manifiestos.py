@@ -530,11 +530,9 @@ async def comparar_manifiestos(
 # ============================================================
 @router.post("/buscar-por-municipio/{municipio}")
 async def buscar_por_municipio(municipio: str):
-    """
-    Devuelve las paradas agrupadas de un municipio específico,
-    idénticas a como se ven al entrar a una provincia.
-    """
+
     from app.core.database import obtener_hbls
+    from app.services.paradas_service import resumen_paradas, marcar_paradas
     
     # 1. Traemos todos los HBLs de ese municipio
     datos = obtener_hbls(None, pagina=1, por_pagina=999999, provincia=municipio)
@@ -546,22 +544,24 @@ async def buscar_por_municipio(municipio: str):
     # 2. Convertimos a DataFrame
     df = pd.DataFrame(hbls)
     
-    # 3. Agrupamos por parada
-    paradas_agrupadas = []
-    grupos = df.groupby(['municipio', 'parada'])
+    # 3. IMPORTANTE: Renombramos las columnas a los nombres que usa el servicio
+    df = df.rename(columns={
+        "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, 
+        "direccion": COL_DIRECCION, "remitente": "Nombre y Apellidos del REMITENTE:",
+        "destinatario": "Nombre y Apellidos del DESTINATARIO:", "telefono": "Teléfono del DESTINATARIO",
+        "contenido": "Contenido del paquete (Descripción)", "bultos": COL_BULTOS,
+        "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
+    })
     
-    for (mun, num_parada), grupo in grupos:
-        primer_hbl = grupo.iloc[0]
-        
-        paradas_agrupadas.append({
-            "Municipio": mun,
-            "Dirección": primer_hbl['direccion'],
-            "Destinatario": primer_hbl['destinatario'],
-            "Parada": int(num_parada),
-            "Cant HBLs": len(grupo),
-            "Bultos": int(grupo['bultos'].sum()),
-            "Peso (Kg)": float(grupo['peso'].sum()),
-            "hbls": grupo.to_dict(orient="records")
-        })
-
-    return {"paradas": paradas_agrupadas}
+    # 4. Usamos las MISMAS funciones que usa la vista de provincia para agrupar
+    df = marcar_paradas(df) 
+    resumen = resumen_paradas(df) 
+    
+    # 5. Devolvemos el mismo JSON que la vista de provincia
+    return {
+        "provincia": municipio,
+        "total_paradas": int(df["Paradas"].sum()),
+        "total_hbls": len(df),
+        "total_hbls_sin_filtro": len(df),
+        "paradas": resumen.fillna("").to_dict(orient="records"),
+    }

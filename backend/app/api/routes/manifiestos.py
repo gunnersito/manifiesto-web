@@ -523,3 +523,39 @@ async def comparar_manifiestos(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+        
+        from app.services.paradas_service import resumen_paradas # Asegúrate de importar esto
+
+@router.post("/buscar-por-municipio/{municipio}")
+async def buscar_por_municipio(municipio: str):
+    from app.core.database import obtener_hbls
+    
+    # 1. Traemos todos los HBLs de ese municipio
+    datos = obtener_hbls(None, pagina=1, por_pagina=999999, provincia=municipio)
+    hbls = datos["hbls"]
+    
+    if not hbls:
+        return {"paradas": []}
+        
+    # 2. Convertimos a DataFrame
+    df = pd.DataFrame(hbls)
+    
+    # 3. Agrupamos por parada
+    paradas_agrupadas = []
+    grupos = df.groupby(['municipio', 'parada'])
+    
+    for (mun, num_parada), grupo in grupos:
+        primer_hbl = grupo.iloc[0]
+        
+        paradas_agrupadas.append({
+            "Municipio": mun,
+            "Dirección": primer_hbl['direccion'],
+            "Destinatario": primer_hbl['destinatario'],
+            "Parada": int(num_parada),
+            "Cant HBLs": len(grupo),
+            "Bultos": int(grupo['bultos'].sum()),
+            "Peso (Kg)": float(grupo['peso'].sum()),
+            "hbls": grupo.to_dict(orient="records")
+        })
+
+    return {"paradas": paradas_agrupadas}

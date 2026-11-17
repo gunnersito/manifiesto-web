@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { buscarParadasPorMunicipio } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -290,39 +291,17 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
             {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
           </p>
 
-          {haBuscado && provinciasAMostrar.length === 0 ? (
+          {haBuscado && (paradasBuscadas?.length === 0 || (!paradasBuscadas && provinciasAMostrar.length === 0)) ? (
             <div className="text-center py-12 text-slate-500">No hay resultados que coincidan con los filtros.</div>
-          ) : sonHBLs ? (
+          ) : paradasBuscadas ? (
             <div className="space-y-2">
-              {Object.values(
-                provinciasAMostrar.reduce((acc: any, h: any) => {
-                  const key = `${h.municipio}-${h.parada}`;
-                  if (!acc[key]) {
-                    acc[key] = {
-                      Municipio: h.municipio,
-                      "Dirección": h.direccion,
-                      Destinatario: h.destinatario,
-                      Parada: h.parada,
-                      "Cant HBLs": 0,
-                      Bultos: 0,
-                      "Peso (Kg)": 0,
-                      provincia: h.provincia,
-                      hbls: [],
-                    };
-                  }
-                  acc[key]["Cant HBLs"] += 1;
-                  acc[key].Bultos += h.bultos;
-                  acc[key]["Peso (Kg)"] += h.peso || 0;
-                  acc[key].hbls.push(h);
-                  return acc;
-                }, {})
-              ).map((paradaAgrupada: any, index) => (
+              {paradasBuscadas.map((p, index) => (
                 <ParadaCard
                   key={index}
-                  parada={paradaAgrupada}
+                  parada={p}
                   manifiestoId={manifiestoId}
-                  provincia={paradaAgrupada.provincia || ""}
-                  onUpdate={() => {}}
+                  provincia={p.Municipio}
+                  onUpdate={() => {}} 
                 />
               ))}
             </div>
@@ -365,9 +344,9 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
-  const [totalSinFiltro, setTotalSinFiltro] = useState(0);
-  
+  const [totalSinFiltro, setTotalSinFiltro] = useState(0);  
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
+  const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
   useEffect(() => {
     cargarParadas();
@@ -394,16 +373,32 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   };
 
   const aplicarFiltros = async () => {
-    setCargandoFiltro(true);
+    if (!manifiestoId) return;
+    setCargando(true);
+    setHaBuscado(true);
     setError(null);
     try {
-      const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
-      setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro);
+      if (ubicacion) {
+        const result = await buscarParadasPorMunicipio(ubicacion);
+        setParadasBuscadas(result.paradas);
+        (metadata as any)._resumenFiltrado = null;
+      } else if (busqueda || estado) {
+        const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, "");
+        setParadasBuscadas(null); 
+        (metadata as any)._resumenFiltrado = result.hbls.map(h => ({
+            ...h,
+            hbls: 1,
+            paradas: h.parada,
+            esHBL: true
+        }));
+      } else {
+        setParadasBuscadas(null);
+        (metadata as any)._resumenFiltrado = null;
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || "Error al filtrar");
+      setError(err.message || "Error al aplicar filtros");
     } finally {
-      setCargandoFiltro(false);
+      setCargando(false);
     }
   };
 

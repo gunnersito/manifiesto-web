@@ -110,7 +110,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     setError(null);
     try {
       if (ubicacion) {
-        const result = await buscarParadasPorMunicipio(ubicacion);
+        const result = await buscarParadasPorMunicipio(manifiestoId, ubicacion);
         setParadasBuscadas(result.paradas);
         (metadata as any)._resumenFiltrado = null;
       } else if (busqueda || estado) {

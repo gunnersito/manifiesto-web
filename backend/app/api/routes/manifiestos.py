@@ -529,13 +529,15 @@ async def comparar_manifiestos(
 # BUSCAR PARADAS POR MUNICIPIO (NUEVO)
 # ============================================================
 @router.post("/buscar-por-municipio/{municipio}")
-async def buscar_por_municipio(municipio: str):
-
+async def buscar_por_municipio(
+    municipio: str,
+    manifiesto_id: int = Form(...),
+):
     from app.core.database import obtener_hbls
     from app.services.paradas_service import resumen_paradas, marcar_paradas
     
-    # 1. Traemos todos los HBLs de ese municipio
-    datos = obtener_hbls(None, pagina=1, por_pagina=999999, provincia=municipio)
+    # 1. Traemos los HBLs de ese municipio Y DE ESE MANIFIESTO
+    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, provincia=municipio)
     hbls = datos["hbls"]
     
     if not hbls:
@@ -544,7 +546,7 @@ async def buscar_por_municipio(municipio: str):
     # 2. Convertimos a DataFrame
     df = pd.DataFrame(hbls)
     
-    # 3. IMPORTANTE: Renombramos las columnas a los nombres que usa el servicio
+    # 3. Renombramos las columnas a los nombres que usa el servicio
     df = df.rename(columns={
         "hbl": COL_HBL, "provincia": COL_PROVINCIA, "municipio": COL_MUNICIPIO, 
         "direccion": COL_DIRECCION, "remitente": "Nombre y Apellidos del REMITENTE:",
@@ -553,9 +555,9 @@ async def buscar_por_municipio(municipio: str):
         "peso": "Peso (Kg)", "parada": "Paradas", "estado": "Estado"
     })
     
-    # 4. Usamos las MISMAS funciones que usa la vista de provincia para agrupar
-    df = marcar_paradas(df) 
-    resumen = resumen_paradas(df) 
+    # 4. Usamos las MISMAS funciones que usa la vista de provincia
+    df = marcar_paradas(df)
+    resumen = resumen_paradas(df)
     
     # 5. Devolvemos el mismo JSON que la vista de provincia
     return {

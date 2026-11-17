@@ -583,7 +583,12 @@ export const actualizarUsuario = async (username: string, data: { password?: str
   return res.data;
 };
 
-export async function buscarParadasPorMunicipio(municipio: string): Promise<{ paradas: any[] }> {
-  const response = await api.post(`/manifiestos/buscar-por-municipio/${encodeURIComponent(municipio)}`);
+export async function buscarParadasPorMunicipio(manifiestoId: number, municipio: string): Promise<{ paradas: any[] }> {
+  const formData = new FormData();
+  formData.append("manifiesto_id", manifiestoId.toString());
+
+  const response = await api.post(`/manifiestos/buscar-por-municipio/${encodeURIComponent(municipio)}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return response.data;
 }

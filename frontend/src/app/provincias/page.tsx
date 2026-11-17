@@ -150,10 +150,9 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   // Verificamos si el resultado filtrado es un array de HBLs o de Provincias
   const datosFiltrados = (metadata as any)._resumenFiltrado;
   const sonHBLs = haBuscado && datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
-  const provinciasAMostrar = sonHBLs ? datosFiltrados : (datosFiltrados || provinciasFiltradas);
+  const provinciasAMostrar = (metadata as any)._resumenFiltrado || metadata?.resumen || [];
   const totalHBLs = haBuscado ? provinciasAMostrar.reduce((s: number, p: any) => s + (p.hbls || 0), 0) : (metadata?.resumen || []).reduce((s: number, p: any) => s + (p.hbls || 0), 0);
   const totalParadas = provinciasAMostrar.reduce((s: number, p: any) => s + (p.paradas || 0), 0);
-  const provinciasAMostrar = (metadata as any)._resumenFiltrado || metadata?.resumen || [];
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">

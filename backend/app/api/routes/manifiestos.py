@@ -331,8 +331,19 @@ async def guardar_endpoint(
     if existente:
         return {"status": "already_exists", "manifiesto_id": existente["id"], "mensaje": "Este archivo ya está cargado", "total_filas": existente["total_filas"], "provincias": existente["resumen"]}
 
-    df = cargar_excel(contenido, hoja)
+    try:
+        df = cargar_excel(contenido, hoja)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al leer el archivo: {str(e)}")
+
     df, _ = aplicar_mapeo_columnas(df)
+    faltantes = validar_columnas_esenciales(df)
+    if faltantes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faltan columnas esenciales: {faltantes}. Revisa que el Excel las incluya.",
+        )
+
     df, _ = limpiar_manifiesto(df)
     df = marcar_paradas(df, umbral=umbral)
     df = enriquecer_df_con_estados(df)

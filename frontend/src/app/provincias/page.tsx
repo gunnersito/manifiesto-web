@@ -99,10 +99,12 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
+  const [haBuscado, setHaBuscado] = useState(false);
 
   const aplicarFiltros = async () => {
     if (!manifiestoId) return;
     setCargando(true);
+	setHaBuscado(true);
     setError(null);
     try {
       if (busqueda || estado || ubicacion) {
@@ -138,6 +140,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     setBusqueda("");
     setEstado("");
     setUbicacion("");
+	setHaBuscado(false);
     if (metadata) {
       (metadata as any)._hblsFiltrados = null;
       (metadata as any)._resumenFiltrado = null;
@@ -146,7 +149,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 
   // Verificamos si el resultado filtrado es un array de HBLs o de Provincias
   const datosFiltrados = (metadata as any)._resumenFiltrado;
-  const sonHBLs = datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
+  const sonHBLs = haBuscado && datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
 
   const provinciasFiltradas: ManifiestoResumen[] = (metadata?.resumen || []).filter((p: any) => {
     if (ubicacion && p.provincia !== ubicacion) return false;
@@ -291,7 +294,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
             {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
           </p>
 
-         {provinciasAMostrar.length === 0 ? (
+         {haBuscado && provinciasAMostrar.length === 0 ? (
             <div className="text-center py-12 text-slate-500">No hay resultados que coincidan con los filtros.</div>
           ) : sonHBLs ? (
             <div className="space-y-2">

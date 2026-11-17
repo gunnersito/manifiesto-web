@@ -639,14 +639,16 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-200 text-left">
-                    <th className="pb-2 font-semibold text-slate-700">HBL</th>
-                    <th className="pb-2 font-semibold text-slate-700">Contenido</th>
-                    <th className="pb-2 font-semibold text-slate-700 text-right">Bultos</th>
-                    <th className="pb-2 font-semibold text-slate-700 text-right">Kg</th>
-                    <th className="pb-2 font-semibold text-slate-700 text-right">Estado</th>
-                  </tr></thead>
+                <table className="w-full text-sm table-fixed">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left">
+                      <th className="pb-2 font-semibold text-slate-700 w-[20%]">HBL</th>
+                      <th className="pb-2 font-semibold text-slate-700 w-[45%]">Contenido</th>
+                      <th className="pb-2 font-semibold text-slate-700 text-right w-[10%]">Bultos</th>
+                      <th className="pb-2 font-semibold text-slate-700 text-right w-[10%]">Kg</th>
+                      <th className="pb-2 font-semibold text-slate-700 text-right w-[15%]">Estado</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {hbls.map((h) => (
                       <tr key={h.hbl} className="border-b border-slate-100 last:border-0">

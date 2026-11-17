@@ -134,11 +134,12 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     }
   };
 
-  const limpiarFiltros = () => {
+    const limpiarFiltros = () => {
     setBusqueda("");
     setEstado("");
     setUbicacion("");
     if (metadata) {
+      (metadata as any)._hblsFiltrados = null;
       (metadata as any)._resumenFiltrado = null;
     }
   };

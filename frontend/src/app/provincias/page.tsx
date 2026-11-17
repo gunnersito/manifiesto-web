@@ -290,27 +290,42 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
             {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
           </p>
 
-          {provinciasAMostrar.length === 0 ? (
+         {provinciasAMostrar.length === 0 ? (
             <div className="text-center py-12 text-slate-500">No hay resultados que coincidan con los filtros.</div>
           ) : sonHBLs ? (
-            // 👇 SI SON HBLs, MOSTRAMOS LAS TARJETAS DE HBL 👇
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {provinciasAMostrar.map((h: any) => (
-                <div key={h.hbl} className="border border-slate-200 rounded-lg p-4 bg-white hover:border-blue-400 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium text-blue-700 font-mono">{h.hbl}</div>
-                  </div>
-                  <div className="text-sm font-medium text-slate-900 truncate">{h.destinatario || "—"}</div>
-                  <div className="text-xs text-slate-500 truncate mt-1">{h.direccion}</div>
-                  <div className="flex gap-2 mt-3 text-xs">
-                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{h.municipio}</span>
-                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">{h.provincia}</span>
-                  </div>
-                </div>
+            <div className="space-y-2">
+              {Object.values(
+                provinciasAMostrar.reduce((acc: any, h: any) => {
+                  const key = `${h.municipio}-${h.direccion}`;
+                  if (!acc[key]) {
+                    acc[key] = {
+                      Municipio: h.municipio,
+                      "Dirección": h.direccion,
+                      Destinatario: h.destinatario,
+                      Parada: h.parada,
+                      "Cant HBLs": 0,
+                      Bultos: 0,
+                      "Peso (Kg)": 0,
+                      hbls: [],
+                    };
+                  }
+                  acc[key]["Cant HBLs"] += 1;
+                  acc[key].Bultos += h.bultos;
+                  acc[key]["Peso (Kg)"] += h.peso || 0;
+                  acc[key].hbls.push(h);
+                  return acc;
+                }, {})
+              ).map((paradaAgrupada: any, index) => (
+                <ParadaCard
+                  key={index}
+                  parada={paradaAgrupada}
+                  manifiestoId={manifiestoId}
+                  provincia={paradaAgrupada.provincia || ""}
+                  onUpdate={() => {}}
+                />
               ))}
             </div>
           ) : (
-            // 👇 SI SON PROVINCIAS, MOSTRAMOS LAS TARJETAS DE PROVINCIA 👇
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {provinciasAMostrar.map((p: ManifiestoResumen) => (
                 <Link
@@ -336,7 +351,6 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     </main>
   );
 }
-
 // ============================================================
 // VISTA 2: DETALLE
 // ============================================================
@@ -590,9 +604,13 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
   const [hbls, setHbls] = useState<HBLRegistro[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [marcandoTodas, setMarcandoTodas] = useState(false);
-  const toggleExpand = async () => {
+    const toggleExpand = async () => {
     if (expanded) { setExpanded(false); return; }
     setExpanded(true);
+    if ((parada as any).hbls) {
+      setHbls((parada as any).hbls);
+      return;
+    }
     if (hbls) return;
     setLoading(true);
     try {

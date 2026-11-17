@@ -35,9 +35,16 @@ def init_db():
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL
+            role TEXT NOT NULL,
+            ultimo_manifiesto_id INTEGER
         )
     """)
+
+    # Bases creadas con la versión anterior del esquema no tienen la columna
+    # (el login la consulta), así que la añadimos si falta.
+    cursor.execute(
+        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_manifiesto_id INTEGER"
+    )
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS manifiestos (

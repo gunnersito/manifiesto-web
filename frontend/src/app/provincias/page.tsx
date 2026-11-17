@@ -104,7 +104,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const aplicarFiltros = async () => {
     if (!manifiestoId) return;
     setCargando(true);
-	setHaBuscado(true);
+    setHaBuscado(true);
     setError(null);
     try {
       if (busqueda || estado || ubicacion) {
@@ -114,12 +114,15 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
           const hblsMostrar = result.hbls.map(h => ({
             provincia: h.provincia,
             hbls: 1,
-            paradas: h.parada,
+            paradas: h.parada, // 👈 Usamos la parada del backend
             bultos: h.bultos,
+            contenido: h.contenido || "",
+            peso: h.peso || 0,
             municipio: h.municipio,
             direccion: h.direccion,
             destinatario: h.destinatario,
             hbl: h.hbl,
+            parada: h.parada,
             esHBL: true
           }));
           (metadata as any)._resumenFiltrado = hblsMostrar;
@@ -136,18 +139,17 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     }
   };
 
-    const limpiarFiltros = () => {
+  const limpiarFiltros = () => {
     setBusqueda("");
     setEstado("");
     setUbicacion("");
-	setHaBuscado(false);
+    setHaBuscado(false);
     if (metadata) {
       (metadata as any)._hblsFiltrados = null;
       (metadata as any)._resumenFiltrado = null;
     }
   };
 
-  // Verificamos si el resultado filtrado es un array de HBLs o de Provincias
   const datosFiltrados = (metadata as any)._resumenFiltrado;
   const sonHBLs = haBuscado && datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
   const provinciasAMostrar = (metadata as any)._resumenFiltrado || metadata?.resumen || [];
@@ -288,13 +290,13 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
             {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
           </p>
 
-         {haBuscado && provinciasAMostrar.length === 0 ? (
+          {haBuscado && provinciasAMostrar.length === 0 ? (
             <div className="text-center py-12 text-slate-500">No hay resultados que coincidan con los filtros.</div>
           ) : sonHBLs ? (
             <div className="space-y-2">
               {Object.values(
                 provinciasAMostrar.reduce((acc: any, h: any) => {
-                  const key = `${h.municipio}-${h.direccion}`;
+                  const key = `${h.municipio}-${h.parada}`;
                   if (!acc[key]) {
                     acc[key] = {
                       Municipio: h.municipio,
@@ -304,6 +306,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                       "Cant HBLs": 0,
                       Bultos: 0,
                       "Peso (Kg)": 0,
+                      provincia: h.provincia,
                       hbls: [],
                     };
                   }
@@ -349,6 +352,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     </main>
   );
 }
+
 // ============================================================
 // VISTA 2: DETALLE
 // ============================================================
@@ -602,13 +606,16 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
   const [hbls, setHbls] = useState<HBLRegistro[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [marcandoTodas, setMarcandoTodas] = useState(false);
-    const toggleExpand = async () => {
+
+  const toggleExpand = async () => {
     if (expanded) { setExpanded(false); return; }
     setExpanded(true);
+    
     if ((parada as any).hbls) {
       setHbls((parada as any).hbls);
       return;
     }
+    
     if (hbls) return;
     setLoading(true);
     try {
@@ -639,7 +646,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
             </div>
             <p className="text-sm text-slate-600 truncate">{parada["Dirección"]}</p>
-			<p className="text-xs text-slate-500 mt-0.5">{parada.Municipio}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{parada.Municipio}</p>
           </div>
           <div className="flex gap-3 text-sm flex-shrink-0 text-center">
             <div><div className="font-bold text-slate-900">{parada["Cant HBLs"]}</div><div className="text-xs text-slate-500">HBLs</div></div>
@@ -745,4 +752,4 @@ function EstadoBadge({ estado, hbl, onChange }: { estado?: string, hbl: string, 
       </select>
     </div>
   );
-}        
+}

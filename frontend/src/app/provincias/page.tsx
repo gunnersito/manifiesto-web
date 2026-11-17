@@ -103,35 +103,27 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [haBuscado, setHaBuscado] = useState(false);
   const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
-  const aplicarFiltros = async () => {
+    const aplicarFiltros = async () => {
     if (!manifiestoId) return;
     setCargando(true);
     setHaBuscado(true);
     setError(null);
     try {
-      if (busqueda || estado || ubicacion) {
-        const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, ubicacion);
-        
-        if (result.hbls.length > 0) {
-          const hblsMostrar = result.hbls.map(h => ({
-            provincia: h.provincia,
+      if (ubicacion) {
+        const result = await buscarParadasPorMunicipio(ubicacion);
+        setParadasBuscadas(result.paradas);
+        (metadata as any)._resumenFiltrado = null;
+      } else if (busqueda || estado) {
+        const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, "");
+        setParadasBuscadas(null);
+        (metadata as any)._resumenFiltrado = result.hbls.map(h => ({
+            ...h,
             hbls: 1,
-            paradas: h.parada, // 👈 Usamos la parada del backend
-            bultos: h.bultos,
-            contenido: h.contenido || "",
-            peso: h.peso || 0,
-            municipio: h.municipio,
-            direccion: h.direccion,
-            destinatario: h.destinatario,
-            hbl: h.hbl,
-            parada: h.parada,
+            paradas: h.parada,
             esHBL: true
-          }));
-          (metadata as any)._resumenFiltrado = hblsMostrar;
-        } else {
-          (metadata as any)._resumenFiltrado = [];
-        }
+        }));
       } else {
+        setParadasBuscadas(null);
         (metadata as any)._resumenFiltrado = null;
       }
     } catch (err: any) {
@@ -289,7 +281,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Resumen por provincia</h3>
           <p className="text-sm text-slate-500 mb-4">
-            {sonHBLs ? "Resultados de la búsqueda por HBL" : "Haz clic en una provincia para ver sus paradas"}
+            {paradasBuscadas ? "Resultados de la búsqueda por municipio" : "Haz clic en una provincia para ver sus paradas"}
           </p>
 
           {haBuscado && (paradasBuscadas?.length === 0 || (!paradasBuscadas && provinciasAMostrar.length === 0)) ? (
@@ -345,7 +337,8 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
-  const [totalSinFiltro, setTotalSinFiltro] = useState(0);  
+  const [totalSinFiltro, setTotalSinFiltro] = useState(0);
+  
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
 
   useEffect(() => {
@@ -373,32 +366,16 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   };
 
   const aplicarFiltros = async () => {
-    if (!manifiestoId) return;
-    setCargando(true);
-    setHaBuscado(true);
+    setCargandoFiltro(true);
     setError(null);
     try {
-      if (ubicacion) {
-        const result = await buscarParadasPorMunicipio(ubicacion);
-        setParadasBuscadas(result.paradas);
-        (metadata as any)._resumenFiltrado = null;
-      } else if (busqueda || estado) {
-        const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, "");
-        setParadasBuscadas(null); 
-        (metadata as any)._resumenFiltrado = result.hbls.map(h => ({
-            ...h,
-            hbls: 1,
-            paradas: h.parada,
-            esHBL: true
-        }));
-      } else {
-        setParadasBuscadas(null);
-        (metadata as any)._resumenFiltrado = null;
-      }
+      const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
+      setParadas(result);
+      setTotalSinFiltro(result.total_hbls_sin_filtro);
     } catch (err: any) {
-      setError(err.message || "Error al aplicar filtros");
+      setError(err.response?.data?.detail || err.message || "Error al filtrar");
     } finally {
-      setCargando(false);
+      setCargandoFiltro(false);
     }
   };
 

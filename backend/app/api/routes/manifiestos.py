@@ -523,11 +523,17 @@ async def comparar_manifiestos(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-        
-        from app.services.paradas_service import resumen_paradas # Asegúrate de importar esto
 
+
+# ============================================================
+# BUSCAR PARADAS POR MUNICIPIO (NUEVO)
+# ============================================================
 @router.post("/buscar-por-municipio/{municipio}")
 async def buscar_por_municipio(municipio: str):
+    """
+    Devuelve las paradas agrupadas de un municipio específico,
+    idénticas a como se ven al entrar a una provincia.
+    """
     from app.core.database import obtener_hbls
     
     # 1. Traemos todos los HBLs de ese municipio

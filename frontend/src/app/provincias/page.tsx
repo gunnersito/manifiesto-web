@@ -101,6 +101,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [error, setError] = useState<string | null>(null);
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
   const [haBuscado, setHaBuscado] = useState(false);
+  const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
   const aplicarFiltros = async () => {
     if (!manifiestoId) return;
@@ -346,7 +347,6 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
   const [totalSinFiltro, setTotalSinFiltro] = useState(0);  
   const { manifiestos, seleccionarManifiesto } = useManifiesto();
-  const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
   useEffect(() => {
     cargarParadas();

@@ -582,3 +582,8 @@ export const actualizarUsuario = async (username: string, data: { password?: str
   const res = await api.put(`/usuarios/${username}`, data);
   return res.data;
 };
+
+export async function buscarParadasPorMunicipio(municipio: string): Promise<{ paradas: any[] }> {
+  const response = await api.post(`/manifiestos/buscar-por-municipio/${encodeURIComponent(municipio)}`);
+  return response.data;
+}

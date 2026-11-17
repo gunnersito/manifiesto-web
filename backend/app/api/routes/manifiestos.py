@@ -45,8 +45,6 @@ from app.core.database import (
     obtener_ruta_archivo_original
 )
 
-router = APIRouter(prefix="/manifiestos", tags=["Manifiestos"])
-
 # Inicializamos el cliente de Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -67,6 +65,14 @@ def verificar_lector(credentials: HTTPAuthorizationCredentials = Depends(securit
         return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+# Todas las rutas de este router exigen un token válido (cualquier rol).
+# Las que además requieren rol admin añaden Depends(verificar_admin).
+router = APIRouter(
+    prefix="/manifiestos",
+    tags=["Manifiestos"],
+    dependencies=[Depends(verificar_lector)],
+)
 
 # ============================================================
 # MODELOS

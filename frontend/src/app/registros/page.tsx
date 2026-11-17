@@ -41,8 +41,16 @@ export default function RegistrosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-    // Cargar datos
-  const cargarDatos = async (nuevaPagina = pagina) => {
+  // Filtros explícitos para poder recargar sin esperar al re-render de los estados
+  type Filtros = {
+    porPagina?: number;
+    busqueda?: string;
+    estado?: string;
+    provincia?: string[];
+  };
+
+  // Cargar datos
+  const cargarDatos = async (nuevaPagina = pagina, filtros: Filtros = {}) => {
     setLoading(true);
     setError(null);
     try {
@@ -51,10 +59,10 @@ export default function RegistrosPage() {
       const result = await obtenerTodosLosHBLs(
         idParaFiltrar,
         nuevaPagina,
-        porPagina,
-        busqueda,
-        estadoFiltro,
-        provinciaFiltro.join(",")
+        filtros.porPagina ?? porPagina,
+        filtros.busqueda ?? busqueda,
+        filtros.estado ?? estadoFiltro,
+        (filtros.provincia ?? provinciaFiltro).join(",")
       );
       setDatos(result);
       setPagina(nuevaPagina);
@@ -75,14 +83,8 @@ export default function RegistrosPage() {
   const limpiarFiltros = () => {
     setBusqueda("");
     setEstadoFiltro("");
-    setProvinciaFiltro("");
-    if (manifiestoId) {
-      obtenerHBLsManifiesto(manifiestoId, 1, porPagina, busqueda, estadoFiltro, provinciaFiltro.join(","))
-        .then((r) => {
-          setDatos(r);
-          setPagina(1);
-        });
-    }
+    setProvinciaFiltro([]);
+    cargarDatos(1, { busqueda: "", estado: "", provincia: [] });
   };
 
   const cambiarPagina = (nueva: number) => {
@@ -92,13 +94,7 @@ export default function RegistrosPage() {
 
   const cambiarPorPagina = (nuevo: number) => {
     setPorPagina(nuevo);
-    if (manifiestoId) {
-      obtenerHBLsManifiesto(manifiestoId, 1, porPagina, busqueda, estadoFiltro, provinciaFiltro.join(","))
-        .then((r) => {
-          setDatos(r);
-          setPagina(1);
-        });
-    }
+    cargarDatos(1, { porPagina: nuevo });
   };
 
   // Sin datos
@@ -262,7 +258,7 @@ export default function RegistrosPage() {
                 <Select
                   value={estadoFiltro || "todos"}
                   onValueChange={(value) =>
-                    setEstadoFiltro(value === "todos" ? "" : value)
+                    setEstadoFiltro(!value || value === "todos" ? "" : value)
                   }
                 >
                   <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">

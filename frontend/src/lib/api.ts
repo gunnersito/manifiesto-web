@@ -88,6 +88,7 @@ export interface ParadasResponse {
   provincia: string;
   total_paradas: number;
   total_hbls: number;
+  total_hbls_sin_filtro?: number;
   paradas: ParadaInfo[];
 }
 
@@ -492,7 +493,7 @@ export async function exportarTodasProvinciasPorId(
   nombreBase: string = ""
 ): Promise<void> {
   const url = `/manifiestos/exportar-todas-por-id/${manifiestoId}`;
-  const nombreFinal = nombreBase ? nombreBase.replace(".xlsx", "").replace(".xls", "") : manifiestoId;
+  const nombreFinal = nombreBase ? nombreBase.replace(".xlsx", "").replace(".xls", "") : String(manifiestoId);
   await descargarArchivoPorId(url, nombreFinal, "manifiesto_todas_provincias");
 }
 

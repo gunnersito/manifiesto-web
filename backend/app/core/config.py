@@ -27,10 +27,19 @@ ESTADO_DEFAULT = "Pendiente"
 USUARIO_ACTUAL = "operador"
 
 # --- CORS (para el frontend) ---
-CORS_ORIGINS = [
+# Lista de orígenes permitidos. Se puede sobrescribir sin tocar código con la
+# variable de entorno CORS_ORIGINS (varios orígenes separados por comas).
+CORS_ORIGINS_DEFAULT = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://manifiesto-80y4b5dr3-manifiesto1.vercel.app",
 ]
+
+CORS_ORIGINS = [
+    origen.strip().rstrip("/")
+    for origen in os.getenv("CORS_ORIGINS", "").split(",")
+    if origen.strip()
+] or CORS_ORIGINS_DEFAULT
 
 # --- Orden de columnas de salida ---
 ORDEN_COLUMNAS_SALIDA = [
@@ -76,8 +85,15 @@ ORDEN_PROVINCIAS = [
 # ============================================================
 # SEGURIDAD Y AUTENTICACIÓN (JWT)
 # ============================================================
-# En producción, cambia esta clave secreta por una larga y aleatoria
-SECRET_KEY = "super-secreto-manifiesto-web-2026-cambiar-en-produccion"
+# La clave secreta NUNCA se escribe en el código: se lee de la variable de
+# entorno SECRET_KEY (Render/Vercel o backend/.env). Sin ella la API no arranca.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "Falta la variable de entorno SECRET_KEY. Defínela con un valor largo y "
+        "aleatorio antes de arrancar la API (por ejemplo en Render o en backend/.env)."
+    )
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 

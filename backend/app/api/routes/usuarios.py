@@ -116,27 +116,6 @@ def actualizar_mi_password(data: PasswordUpdate, user: dict = Depends(verificar_
         cursor.close()
         conn.close()
 
-from fastapi import APIRouter
-
-@router.get("/crear-admin-temp")
-def crear_admin_temporal():
-    from app.core.database import get_db_connection, encriptar_password
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        # Borramos el viejo por si acaso
-        cur.execute("DELETE FROM usuarios WHERE username = 'admin'")
-        # Creamos el nuevo con la contraseña encriptada por tu propio código
-        cur.execute(
-            "INSERT INTO usuarios (username, password, role) VALUES (%s, %s, %s)",
-            ("admin", encriptar_password("admin123"), "admin")
-        )
-        conn.commit()
-        return {"message": "✅ Usuario admin creado con la contraseña 'admin123'"}
-    finally:
-        cur.close()
-        conn.close()
-
 @router.put("/perfil/manifiesto-activo")
 def actualizar_manifiesto_activo(data: ManifiestoSeleccionado, user: dict = Depends(verificar_lector)):
     username = user.get("sub")

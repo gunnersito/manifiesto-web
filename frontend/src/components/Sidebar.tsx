@@ -67,7 +67,7 @@ export default function Sidebar() {
   };
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delay={200}>
       <aside
         className={`${
           collapsed ? "w-16" : "w-64"

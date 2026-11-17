@@ -246,7 +246,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                     [
                       ...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))),
                       ...Array.from(new Set((metadata?.resumen || []).flatMap((p: any) => p.municipios || [])))
-                    ].sort((a: string, b: string) => {
+                    ].map(String).sort((a: string, b: string) => {
                       const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
                       const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
                       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
@@ -261,7 +261,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 
               <div className="w-full min-w-0">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
-                <Select value={estado || "todos"} onValueChange={(v) => setEstado(v === "todos" ? "" : v)}>
+                <Select value={estado || "todos"} onValueChange={(v) => setEstado(!v || v === "todos" ? "" : v)}>
                   <SelectTrigger className="w-full !h-[42px] bg-white">
                     <SelectValue placeholder="todos" />
                   </SelectTrigger>
@@ -351,7 +351,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro);
+      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Error al cargar");
     } finally {
@@ -371,7 +371,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro);
+      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Error al filtrar");
     } finally {
@@ -385,7 +385,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro);
+      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.message || "Error al limpiar");
     } finally {
@@ -518,7 +518,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>
-                <Select value={estadoFiltro || "todos"} onValueChange={(v) => setEstadoFiltro(v === "todos" ? "" : v)}>
+                <Select value={estadoFiltro || "todos"} onValueChange={(v) => setEstadoFiltro(!v || v === "todos" ? "" : v)}>
                   <SelectTrigger className="w-full !h-[42px] bg-white">
                     <SelectValue placeholder="todos" />
                   </SelectTrigger>

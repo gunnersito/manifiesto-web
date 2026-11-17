@@ -3,6 +3,7 @@ Punto de entrada de la API FastAPI.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import CORS_ORIGINS
 from app.core.database import init_db
 
 # Importamos todas las rutas
@@ -15,16 +16,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --- CORS (Configuración forzada para producción) ---
-# Ponemos la URL exacta de Vercel para que no falle por la variable CORS_ORIGINS
-origins = [
-    "https://manifiesto-80y4b5dr3-manifiesto1.vercel.app", # 👈 Tu URL de Vercel
-    "http://localhost:3000",
-]
-
+# --- CORS ---
+# Solo se aceptan peticiones desde los orígenes configurados en CORS_ORIGINS
+# (backend/app/core/config.py), que se pueden sobrescribir con la variable de
+# entorno CORS_ORIGINS separada por comas.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

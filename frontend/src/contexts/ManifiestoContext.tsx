@@ -33,7 +33,7 @@ interface ManifiestoContextType {
   subirYGuardar: (file: File) => Promise<{ alreadyExists: boolean }>;
   seleccionarManifiesto: (id: number) => Promise<void>;
   eliminarManifiestoPorId: (id: number) => Promise<void>;
-  recargarLista: () => Promise<void>;
+  recargarLista: () => Promise<ManifiestoEnLista[]>;
   limpiar: () => void;
 }
 

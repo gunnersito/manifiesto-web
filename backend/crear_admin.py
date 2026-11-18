@@ -10,8 +10,15 @@ verdad de las tablas.
 import getpass
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from app.core.database import encriptar_password, get_db_connection, init_db
+
+# Este script no pasa por config.py ni necesita SECRET_KEY, así que carga el
+# backend/.env por su cuenta para encontrar DATABASE_URL.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 def leer_password() -> str:

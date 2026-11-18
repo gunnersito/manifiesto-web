@@ -2,16 +2,17 @@
 Manejo de la base de datos PostgreSQL para Supabase.
 """
 import json
+import os
 import bcrypt
 import psycopg2
 from psycopg2.extras import execute_batch
 from datetime import datetime
 
-from app.core.config import DATABASE_URL
-
 def get_db_connection():
     """Retorna una nueva conexión a PostgreSQL (Supabase)."""
-    return psycopg2.connect(DATABASE_URL)
+    # Se lee en cada conexión para que el módulo no dependa de config.py ni de
+    # cuándo se cargó el .env.
+    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
 def init_db():
     """Crea todas las tablas necesarias si no existen."""

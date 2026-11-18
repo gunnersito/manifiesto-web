@@ -31,13 +31,13 @@ import {
 const ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
 
 export default function RegistrosPage() {
-  const { metadata, manifiestos } = useManifiesto();
+  const { metadata, manifiestos, manifiestoId } = useManifiesto();
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(15);
   const [busqueda, setBusqueda] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [provinciaFiltro, setProvinciaFiltro] = useState<string[]>([]);
-  const [manifiestoFiltro, setManifiestoFiltro] = useState<string>("");
+  const [manifiestoFiltro, setManifiestoFiltro] = useState<string>("activo");
   const [datos, setDatos] = useState<HBLsPaginaResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +55,12 @@ export default function RegistrosPage() {
     setLoading(true);
     setError(null);
     try {
-      const idParaFiltrar = manifiestoFiltro ? Number(manifiestoFiltro) : null;
+      const idParaFiltrar =
+        manifiestoFiltro === "todos"
+          ? null
+          : manifiestoFiltro === "activo"
+            ? manifiestoId ?? null
+            : Number(manifiestoFiltro);
 
       const result = await obtenerTodosLosHBLs(
         idParaFiltrar,
@@ -74,10 +79,13 @@ export default function RegistrosPage() {
     }
   };
 
-  // Cargar al montar
+  // Cargar al montar y cada vez que cambie el manifiesto activo elegido
   useEffect(() => {
+    // Con "Manifiesto activo" esperamos a que el contexto lo resuelva, para no
+    // pedir en la primera carga los HBLs de todos los manifiestos mezclados.
+    if (manifiestoFiltro === "activo" && !manifiestoId) return;
     cargarDatos(1);
-  }, [manifiestoFiltro]); // 👈 Ahora escucha al filtro de manifiesto
+  }, [manifiestoFiltro, manifiestoId]);
 
   const aplicarFiltros = () => cargarDatos(1);
 
@@ -204,7 +212,8 @@ export default function RegistrosPage() {
                   onChange={(e) => setManifiestoFiltro(e.target.value)}
                   className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Todos los manifiestos</option>
+                  <option value="activo">Manifiesto activo</option>
+                  <option value="todos">Todos los manifiestos</option>
                   {manifiestos.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.nombre_archivo}

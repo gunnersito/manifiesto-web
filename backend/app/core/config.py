@@ -41,6 +41,12 @@ CORS_ORIGINS_DEFAULT = [
 
 _cors_entorno = os.getenv("CORS_ORIGINS", "")
 _cors_desde_entorno = [origen.strip().rstrip("/") for origen in _cors_entorno.split(",") if origen.strip()]
+if "*" in _cors_desde_entorno:
+    raise RuntimeError(
+        "CORS_ORIGINS no admite '*'. Escribe los orígenes completos separados por "
+        "comas (por ejemplo https://tu-app.vercel.app): un comodín deja la API "
+        "abierta a cualquier web."
+    )
 if _cors_entorno and not _cors_desde_entorno:
     raise RuntimeError(
         "CORS_ORIGINS está definida pero no contiene ningún origen válido. "

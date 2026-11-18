@@ -419,7 +419,7 @@ async def eliminar_endpoint(manifiesto_id: int):
         supabase.storage.from_("manifiestos").remove([nombre_archivo_storage])
     except Exception as e:
         # Si por alguna razón el archivo no estaba en Storage, no bloqueamos la eliminación
-        print(f"Advertencia: No se pudo borrar el archivo de Supabase: {e}")
+        logger.warning("No se pudo borrar el archivo de Supabase: %s", e)
 
     return {"status": "success", "deleted_id": manifiesto_id}
 

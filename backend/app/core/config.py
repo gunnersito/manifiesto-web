@@ -5,8 +5,16 @@ import json
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # --- Rutas ---
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
+
+# Se carga antes de leer cualquier variable, para que backend/.env sirva también
+# para SECRET_KEY y CORS_ORIGINS. Las variables reales del entorno mandan: en
+# Render o Vercel, load_dotenv no las sobrescribe.
+load_dotenv(BASE_DIR / ".env")
+
 DB_PATH = BASE_DIR / "entregas.db"
 
 # --- Fuzzy matching ---
@@ -64,10 +72,12 @@ ORDEN_COLUMNAS_SALIDA = [
 ]
 
 # --- Orden de provincias (oeste → este) ---
-# Fuente única compartida con el frontend: orden-provincias.json en la raíz del repo.
-ORDEN_PROVINCIAS = json.loads(
-    (BASE_DIR.parent / "orden-provincias.json").read_text(encoding="utf-8")
+# Fuente única compartida con el frontend: orden-provincias.json en la raíz del
+# repo. Se puede apuntar a otro sitio con ORDEN_PROVINCIAS_PATH.
+ORDEN_PROVINCIAS_PATH = Path(
+    os.getenv("ORDEN_PROVINCIAS_PATH", str(BASE_DIR.parent / "orden-provincias.json"))
 )
+ORDEN_PROVINCIAS = json.loads(ORDEN_PROVINCIAS_PATH.read_text(encoding="utf-8"))
 
 # ============================================================
 # SEGURIDAD Y AUTENTICACIÓN (JWT)
@@ -89,3 +99,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 # ============================================================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# --- Base de datos ---
+DATABASE_URL = os.getenv("DATABASE_URL")

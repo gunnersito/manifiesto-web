@@ -1,16 +1,13 @@
 """
 Manejo de la base de datos PostgreSQL para Supabase.
 """
-import os
 import json
 import bcrypt
 import psycopg2
 from psycopg2.extras import execute_batch
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.core.config import DATABASE_URL
 
 def get_db_connection():
     """Retorna una nueva conexión a PostgreSQL (Supabase)."""

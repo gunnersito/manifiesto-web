@@ -1,0 +1,27 @@
+# Despliegue del backend en Render.
+# En el panel: New -> Blueprint, elige este repositorio y Render lee este fichero.
+services:
+  - type: web
+    name: manifiesto-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # Render genera un valor aleatorio: la clave JWT no se escribe a mano.
+      - key: SECRET_KEY
+        generateValue: true
+      # Secretos que Render pide al crear el blueprint y guarda cifrados.
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      # Dominio exacto del frontend (varios separados por comas).
+      - key: CORS_ORIGINS
+        sync: false

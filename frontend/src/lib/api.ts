@@ -1,7 +1,11 @@
 import axios from "axios";
 
-// 1. Forzamos la URL (si el .env.local falla, esto lo soluciona)
-const API_URL = "https://manifiesto-backend.onrender.com/api";
+// URL del backend. Se configura con NEXT_PUBLIC_API_URL (en Vercel, en las
+// variables del proyecto) y, si no está definida, apunta al servicio en Render.
+// Se le quitan las barras finales para que no salgan rutas con //.
+export const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api"
+).replace(/\/+$/, "");
 
 // 2. Creamos la instancia
 export const api = axios.create({

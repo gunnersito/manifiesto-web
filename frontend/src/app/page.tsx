@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "lucide-react";
-import { subirManifiesto } from "@/lib/api";
+import { API_URL, subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
 import { LoadingModal } from "@/components/ui/loading-modal";
@@ -80,9 +80,8 @@ export default function Home() {
       formData.append("file_general", archivoGeneral);
       formData.append("file_ventas", archivoVentas);
 
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api";
       
-      const res = await fetch(`${baseUrl}/manifiestos/comparar-manifiestos`, {
+      const res = await fetch(`${API_URL}/manifiestos/comparar-manifiestos`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${Cookies.get("token")}`

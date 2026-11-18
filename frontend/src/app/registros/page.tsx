@@ -50,17 +50,20 @@ export default function RegistrosPage() {
     provincia?: string[];
   };
 
+  // El selector puede apuntar al manifiesto activo, a uno concreto o a todos;
+  // null significa "todos" (el backend no filtra).
+  const manifiestoFiltrado = () => {
+    if (manifiestoFiltro === "todos") return null;
+    if (manifiestoFiltro === "activo") return metadata;
+    return manifiestos.find((m) => String(m.id) === manifiestoFiltro) ?? null;
+  };
+
   // Cargar datos
   const cargarDatos = async (nuevaPagina = pagina, filtros: Filtros = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const idParaFiltrar =
-        manifiestoFiltro === "todos"
-          ? null
-          : manifiestoFiltro === "activo"
-            ? manifiestoId ?? null
-            : Number(manifiestoFiltro);
+      const idParaFiltrar = manifiestoFiltrado()?.id ?? null;
 
       const result = await obtenerTodosLosHBLs(
         idParaFiltrar,
@@ -156,15 +159,20 @@ export default function RegistrosPage() {
 
   const ubicacionesFinales = Array.from(opcionesUbicacion);
 
+  // La cabecera sigue al filtro: si se miran todos los manifiestos o uno
+  // concreto, no debe anunciar los datos del que está activo.
+  const manifiestoEnFoco = manifiestoFiltrado();
+  const subtitulo = manifiestoEnFoco
+    ? `${manifiestoEnFoco.nombre_archivo} · ${manifiestoEnFoco.total_filas} HBLs`
+    : `Todos los manifiestos · ${datos?.total ?? 0} HBLs`;
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-900">📋 Registros</h1>
-          <p className="text-slate-600 text-sm mt-1">
-            {metadata.nombre_archivo} · {metadata.total_filas} HBLs
-          </p>
+          <p className="text-slate-600 text-sm mt-1">{subtitulo}</p>
         </div>
 
         {error && (

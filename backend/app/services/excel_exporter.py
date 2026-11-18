@@ -2,7 +2,6 @@
 Servicio para generar archivos Excel (exportaciones).
 """
 from io import BytesIO
-from typing import Optional
 
 import re
 import pandas as pd
@@ -11,7 +10,7 @@ from openpyxl.utils import get_column_letter
 
 from app.core.config import (
     COL_HBL, COL_BULTOS, COL_DIRECCION, COL_PROVINCIA, COL_MUNICIPIO,
-    COL_PARADAS, ORDEN_COLUMNAS_SALIDA,
+    COL_PARADAS,
 )
 from app.services.paradas_service import preparar_salida, resumen_paradas
 
@@ -194,7 +193,6 @@ def exportar_por_municipios_excel(df_prov: pd.DataFrame) -> bytes:
     """
     output = BytesIO()
 
-    provincia = str(df_prov[COL_PROVINCIA].iloc[0])
     municipios = sorted(df_prov[COL_MUNICIPIO].dropna().unique().tolist())
 
     resumen = []

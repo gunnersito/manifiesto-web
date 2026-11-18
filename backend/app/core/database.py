@@ -317,9 +317,3 @@ def buscar_manifiesto_por_hash(hash_archivo: str) -> dict | None:
         "resumen": json.loads(row[7]) if row[7] else [],
     }
 
-def obtener_ruta_archivo_original(manifiesto_id: int) -> str:
-    """Devuelve la ruta del archivo Excel original guardado."""
-    from pathlib import Path
-    from .config import DB_PATH
-    uploads_dir = DB_PATH.parent / "uploads"
-    return str(uploads_dir / f"manifiesto_{manifiesto_id}.xlsx")

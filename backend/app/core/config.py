@@ -97,18 +97,6 @@ if not SECRET_KEY:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 
-# Credenciales de los usuarios
-USUARIOS = {
-    "admin": {
-        "password": "admin.",
-        "role": "admin"
-    },
-    "guest": {
-        "password": "guest",
-        "role": "guest"
-    }
-}
-
 # ============================================================
 # SUPABASE STORAGE
 # ============================================================

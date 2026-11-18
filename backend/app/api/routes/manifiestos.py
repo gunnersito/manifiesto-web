@@ -1,11 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from app.core.config import SECRET_KEY, ALGORITHM, SUPABASE_URL, SUPABASE_KEY
 from typing import Optional, List
 from fastapi.responses import Response
 from io import BytesIO
-from pathlib import Path
 import hashlib
 
 import pandas as pd
@@ -13,7 +12,7 @@ from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
 from supabase import create_client, Client
 
-from app.core.config import DB_PATH, COL_PROVINCIA, UMBRAL_SIMILITUD, COL_MUNICIPIO, COL_DIRECCION, COL_HBL, COL_BULTOS, ESTADOS
+from app.core.config import COL_PROVINCIA, UMBRAL_SIMILITUD, COL_MUNICIPIO, COL_DIRECCION, COL_HBL, COL_BULTOS, ESTADOS
 from app.services.excel_parser import (
     cargar_excel,
     listar_hojas,
@@ -42,7 +41,6 @@ from app.core.database import (
     obtener_hbls,
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
-    obtener_ruta_archivo_original
 )
 
 # Inicializamos el cliente de Supabase
@@ -86,6 +84,36 @@ class EstadosMasivos(BaseModel):
     estado: str
 
 # ============================================================
+# CARGA DEL MANIFIESTO
+# ============================================================
+def _cargar_manifiesto(
+    contenido: bytes,
+    hoja: Optional[str],
+    umbral: float = UMBRAL_SIMILITUD,
+) -> tuple[pd.DataFrame, dict, int]:
+    """
+    Lee el Excel, mapea y valida las columnas, limpia las filas y marca paradas.
+
+    Devuelve (df, columnas_renombradas, filas_eliminadas). Lanza un 400 con un
+    mensaje claro si el archivo no se puede leer o le faltan columnas esenciales.
+    """
+    try:
+        df = cargar_excel(contenido, hoja)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al leer el archivo: {str(e)}")
+
+    df, renames = aplicar_mapeo_columnas(df)
+    faltantes = validar_columnas_esenciales(df)
+    if faltantes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faltan columnas esenciales: {faltantes}. Revisa que el Excel las incluya.",
+        )
+
+    df, filas_eliminadas = limpiar_manifiesto(df)
+    return marcar_paradas(df, umbral=umbral), renames, filas_eliminadas
+
+# ============================================================
 # ENDPOINTS
 # ============================================================
 @router.get("/ping")
@@ -108,18 +136,7 @@ async def upload_manifiesto(
     umbral: float = Form(UMBRAL_SIMILITUD),
 ):
     contenido = await file.read()
-    try:
-        df = cargar_excel(contenido, hoja)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al leer el archivo: {str(e)}")
-
-    df, renames = aplicar_mapeo_columnas(df)
-    faltantes = validar_columnas_esenciales(df)
-    if faltantes:
-        raise HTTPException(status_code=400, detail=f"Faltan columnas esenciales: {faltantes}.")
-
-    df, filas_eliminadas = limpiar_manifiesto(df)
-    df = marcar_paradas(df, umbral=umbral)
+    df, renames, filas_eliminadas = _cargar_manifiesto(contenido, hoja, umbral)
     df = enriquecer_df_con_estados(df)
 
     provincias = ordenar_provincias(df[COL_PROVINCIA].dropna().unique().tolist())
@@ -154,14 +171,7 @@ async def obtener_paradas(
     umbral: float = Form(UMBRAL_SIMILITUD),
 ):
     contenido = await file.read()
-    df = cargar_excel(contenido, hoja)
-    df, _ = aplicar_mapeo_columnas(df)
-    faltantes = validar_columnas_esenciales(df)
-    if faltantes:
-        raise HTTPException(status_code=400, detail=f"Faltan columnas: {faltantes}")
-
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df, umbral=umbral)
+    df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
     df = enriquecer_df_con_estados(df)
 
     df_prov = df[df[COL_PROVINCIA] == provincia]
@@ -199,14 +209,7 @@ async def obtener_hbls_parada(
         return obj
 
     contenido = await file.read()
-    df = cargar_excel(contenido, hoja)
-    df, _ = aplicar_mapeo_columnas(df)
-    faltantes = validar_columnas_esenciales(df)
-    if faltantes:
-        raise HTTPException(status_code=400, detail=f"Faltan columnas: {faltantes}")
-
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df, umbral=umbral)
+    df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
     df = enriquecer_df_con_estados(df)
 
     mask = ((df[COL_PROVINCIA] == provincia) & (df[COL_MUNICIPIO] == municipio) & (df[COL_DIRECCION] == direccion))
@@ -331,21 +334,7 @@ async def guardar_endpoint(
     if existente:
         return {"status": "already_exists", "manifiesto_id": existente["id"], "mensaje": "Este archivo ya está cargado", "total_filas": existente["total_filas"], "provincias": existente["resumen"]}
 
-    try:
-        df = cargar_excel(contenido, hoja)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al leer el archivo: {str(e)}")
-
-    df, _ = aplicar_mapeo_columnas(df)
-    faltantes = validar_columnas_esenciales(df)
-    if faltantes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Faltan columnas esenciales: {faltantes}. Revisa que el Excel las incluya.",
-        )
-
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df, umbral=umbral)
+    df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
     df = enriquecer_df_con_estados(df)
 
     provincias = ordenar_provincias(df[COL_PROVINCIA].dropna().unique().tolist())

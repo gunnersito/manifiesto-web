@@ -31,7 +31,8 @@ import {
 const ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
 
 export default function RegistrosPage() {
-  const { metadata, manifiestos, manifiestoId } = useManifiesto();
+  const { metadata, manifiestos } = useManifiesto();
+  const manifiestoActivoId = metadata?.id ?? null;
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(15);
   const [busqueda, setBusqueda] = useState("");
@@ -86,9 +87,9 @@ export default function RegistrosPage() {
   useEffect(() => {
     // Con "Manifiesto activo" esperamos a que el contexto lo resuelva, para no
     // pedir en la primera carga los HBLs de todos los manifiestos mezclados.
-    if (manifiestoFiltro === "activo" && !manifiestoId) return;
+    if (manifiestoFiltro === "activo" && !manifiestoActivoId) return;
     cargarDatos(1);
-  }, [manifiestoFiltro, manifiestoId]);
+  }, [manifiestoFiltro, manifiestoActivoId]);
 
   const aplicarFiltros = () => cargarDatos(1);
 

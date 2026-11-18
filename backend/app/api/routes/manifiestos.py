@@ -365,16 +365,11 @@ async def guardar_endpoint(
         logger.exception("No se pudo guardar el manifiesto %s en Storage", manifiesto_id)
         try:
             eliminar_manifiesto(manifiesto_id)
+            detalle = "No se pudo guardar el archivo en el almacenamiento. No se ha guardado ningún manifiesto; inténtalo de nuevo."
         except Exception:
             logger.exception("No se pudo deshacer el manifiesto huérfano %s", manifiesto_id)
-            raise HTTPException(
-                status_code=503,
-                detail="No se pudo guardar el archivo en el almacenamiento y el manifiesto quedó incompleto. Avisa al administrador.",
-            ) from error
-        raise HTTPException(
-            status_code=503,
-            detail="No se pudo guardar el archivo en el almacenamiento. No se ha guardado ningún manifiesto; inténtalo de nuevo.",
-        ) from error
+            detalle = "No se pudo guardar el archivo en el almacenamiento y el manifiesto quedó incompleto. Avisa al administrador."
+        raise HTTPException(status_code=503, detail=detalle) from error
 
     return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df), "provincias": resumen}
 

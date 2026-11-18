@@ -15,8 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
 # Render o Vercel, load_dotenv no las sobrescribe.
 load_dotenv(BASE_DIR / ".env")
 
-DB_PATH = BASE_DIR / "entregas.db"
-
 # --- Fuzzy matching ---
 UMBRAL_SIMILITUD = 0.90
 
@@ -31,9 +29,6 @@ COL_PARADAS = "Paradas"
 # --- Estados de entrega ---
 ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"]
 ESTADO_DEFAULT = "Pendiente"
-
-# --- Usuario (temporal, hasta que haya login) ---
-USUARIO_ACTUAL = "operador"
 
 # --- CORS (para el frontend) ---
 # Lista de orígenes permitidos. Se puede sobrescribir sin tocar código con la
@@ -75,7 +70,7 @@ ORDEN_COLUMNAS_SALIDA = [
 # Fuente única compartida con el frontend: orden-provincias.json en la raíz del
 # repo. Se puede apuntar a otro sitio con ORDEN_PROVINCIAS_PATH.
 ORDEN_PROVINCIAS_PATH = Path(
-    os.getenv("ORDEN_PROVINCIAS_PATH", str(BASE_DIR.parent / "orden-provincias.json"))
+    os.getenv("ORDEN_PROVINCIAS_PATH") or BASE_DIR.parent / "orden-provincias.json"
 )
 ORDEN_PROVINCIAS = json.loads(ORDEN_PROVINCIAS_PATH.read_text(encoding="utf-8"))
 
@@ -99,6 +94,3 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 # ============================================================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# --- Base de datos ---
-DATABASE_URL = os.getenv("DATABASE_URL")

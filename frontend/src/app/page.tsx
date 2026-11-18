@@ -16,7 +16,6 @@ export default function Home() {
   // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [exito, setExito] = useState(false);
 
   // Estados para Comparar
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);

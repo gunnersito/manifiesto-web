@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
+import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 import { obtenerTodosLosHBLs, actualizarEstado, type HBLRegistro, type HBLsPaginaResponse,
 } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -122,14 +123,6 @@ export default function RegistrosPage() {
       </main>
     );
   }
-
-    // Orden geográfico de provincias (Occidente a Oriente)
-  const ORDEN_PROVINCIAS = [
-    "PINAR DEL RIO", "ARTEMISA", "LA HABANA", "MAYABEQUE", "MATANZAS",
-    "CIENFUEGOS", "VILLA CLARA", "SANCTI SPIRITUS", "CIEGO DE AVILA",
-    "CAMAGUEY", "LAS TUNAS", "HOLGUIN", "GRANMA", "SANTIAGO DE CUBA",
-    "GUANTANAMO", "ISLA DE LA JUVENTUD"
-  ];
 
   // 1. Unir provincias y municipios en un solo arreglo
   const opcionesUbicacion = new Set<string>();

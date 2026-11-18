@@ -42,13 +42,7 @@ import {
   type HBLRegistro,
 } from "@/lib/api";
 import Dashboard from "@/components/Dashboard";
-
-const ORDEN_PROVINCIAS = [
-  "PINAR DEL RIO", "ARTEMISA", "LA HABANA", "MAYABEQUE", "MATANZAS",
-  "CIENFUEGOS", "VILLA CLARA", "SANCTI SPIRITUS", "CIEGO DE AVILA",
-  "CAMAGUEY", "LAS TUNAS", "HOLGUIN", "GRANMA", "SANTIAGO DE CUBA",
-  "GUANTANAMO", "ISLA DE LA JUVENTUD"
-];
+import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 
 // Provincias primero en orden geográfico y después el resto por orden alfabético
 function ordenarUbicaciones(a: string, b: string) {

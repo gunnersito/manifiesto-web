@@ -1,6 +1,7 @@
 """
 Configuración global del backend.
 """
+import json
 import os
 from pathlib import Path
 
@@ -63,24 +64,10 @@ ORDEN_COLUMNAS_SALIDA = [
 ]
 
 # --- Orden de provincias (oeste → este) ---
-ORDEN_PROVINCIAS = [
-    "Pinar del Río", "Pinar del Rio",
-    "Artemisa",
-    "La Habana",
-    "Mayabeque",
-    "Matanzas",
-    "Cienfuegos",
-    "Villa Clara",
-    "Sancti Spíritus", "Sancti Spiritus",
-    "Ciego de Ávila", "Ciego de Avila",
-    "Camagüey", "Camaguey",
-    "Las Tunas",
-    "Holguín", "Holguin",
-    "Granma",
-    "Santiago de Cuba",
-    "Guantánamo", "Guantanamo",
-    "Isla de la Juventud",
-]
+# Fuente única compartida con el frontend: orden-provincias.json en la raíz del repo.
+ORDEN_PROVINCIAS = json.loads(
+    (BASE_DIR.parent / "orden-provincias.json").read_text(encoding="utf-8")
+)
 
 # ============================================================
 # SEGURIDAD Y AUTENTICACIÓN (JWT)

@@ -94,6 +94,39 @@ def encriptar_password(password: str) -> str:
 def verificar_password(password_plana: str, password_encriptada: str) -> bool:
     return bcrypt.checkpw(password_plana.encode('utf-8'), password_encriptada.encode('utf-8'))
 
+def usuario_existe(username: str) -> bool:
+    """True si ya hay un usuario con ese nombre."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM usuarios WHERE username = %s", (username,))
+            return cursor.fetchone() is not None
+    finally:
+        conn.close()
+
+def crear_admin_si_no_existe(username: str, password: str) -> bool:
+    """
+    Crea el usuario con rol admin si no existe. Devuelve True si lo creó.
+
+    El ON CONFLICT evita duplicados si dos instancias arrancan a la vez.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO usuarios (username, password, role)
+                VALUES (%s, %s, 'admin')
+                ON CONFLICT (username) DO NOTHING
+                """,
+                (username, encriptar_password(password)),
+            )
+            creado = cursor.rowcount == 1
+        conn.commit()
+        return creado
+    finally:
+        conn.close()
+
 # ============================================================
 # ESTADOS
 # ============================================================

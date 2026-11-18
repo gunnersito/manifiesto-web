@@ -25,3 +25,8 @@ services:
       # Dominio exacto del frontend (varios separados por comas).
       - key: CORS_ORIGINS
         sync: false
+      # Con estas dos, la API crea el admin la primera vez que arranca.
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false

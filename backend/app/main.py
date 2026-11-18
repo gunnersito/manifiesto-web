@@ -1,21 +1,40 @@
 """
 Punto de entrada de la API FastAPI.
 """
+import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import CORS_ORIGINS
-from app.core.database import init_db
+from app.core.database import crear_admin_si_no_existe, init_db
 
 # Importamos todas las rutas
 from app.api.routes import auth, usuarios, manifiestos
 
+logger = logging.getLogger(__name__)
+
+# Sin esto los logger.info() de la app no llegan a los logs del servidor.
+logging.basicConfig(level=logging.INFO)
+
+
+def _crear_admin_desde_entorno() -> None:
+    """Crea el admin inicial si ADMIN_USERNAME y ADMIN_PASSWORD están definidas."""
+    usuario = (os.getenv("ADMIN_USERNAME") or "").strip()
+    password = os.getenv("ADMIN_PASSWORD") or ""
+    if not usuario or not password.strip():
+        return
+
+    if crear_admin_si_no_existe(usuario, password):
+        logger.info("Creado el usuario inicial '%s' al arrancar", usuario)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Crea las tablas que falten antes de aceptar peticiones."""
+    """Prepara la base de datos antes de aceptar peticiones."""
     init_db()
+    _crear_admin_desde_entorno()
     yield
 
 

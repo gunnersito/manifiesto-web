@@ -6,6 +6,7 @@ from typing import Optional, List
 from fastapi.responses import Response
 from io import BytesIO
 import hashlib
+import math
 
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form
@@ -86,6 +87,17 @@ class EstadosMasivos(BaseModel):
 # ============================================================
 # CARGA DEL MANIFIESTO
 # ============================================================
+def _limpiar_nan(obj):
+    """Sustituye NaN/Inf por 0 para que la respuesta sea JSON válido."""
+    if isinstance(obj, dict):
+        return {k: _limpiar_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_limpiar_nan(v) for v in obj]
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return 0
+    return obj
+
+
 def _cargar_manifiesto(
     contenido: bytes,
     hoja: Optional[str],
@@ -116,10 +128,6 @@ def _cargar_manifiesto(
 # ============================================================
 # ENDPOINTS
 # ============================================================
-@router.get("/ping")
-async def ping():
-    return {"message": "Ruta de manifiestos OK"}
-
 @router.post("/hojas")
 async def obtener_hojas(file: UploadFile = File(...)):
     contenido = await file.read()
@@ -201,13 +209,6 @@ async def obtener_hbls_parada(
     hoja: Optional[str] = Form(None),
     umbral: float = Form(UMBRAL_SIMILITUD),
 ):
-    import math
-    def limpiar_nan(obj):
-        if isinstance(obj, dict): return {k: limpiar_nan(v) for k, v in obj.items()}
-        elif isinstance(obj, list): return [limpiar_nan(v) for v in obj]
-        elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)): return 0
-        return obj
-
     contenido = await file.read()
     df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
     df = enriquecer_df_con_estados(df)
@@ -224,7 +225,7 @@ async def obtener_hbls_parada(
 
     resultado = df_parada[cols].fillna("").to_dict(orient="records")
 
-    return {"provincia": provincia, "municipio": municipio, "direccion": direccion, "total_hbls": len(df_parada), "hbls": limpiar_nan(resultado)}
+    return {"provincia": provincia, "municipio": municipio, "direccion": direccion, "total_hbls": len(df_parada), "hbls": _limpiar_nan(resultado)}
 
 @router.post("/estado")
 async def actualizar_estado(data: EstadoUpdate):

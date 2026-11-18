@@ -16,14 +16,12 @@ export default function Home() {
   // Estados para Subir normal
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
 
   // Estados para Comparar
   const [archivoGeneral, setArchivoGeneral] = useState<File | null>(null);
   const [archivoVentas, setArchivoVentas] = useState<File | null>(null);
   const [comparando, setComparando] = useState(false);
-  const [errorComparar, setErrorComparar] = useState<string | null>(null);
 
   // Estados para el Modal de Notificación
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -47,7 +45,6 @@ export default function Home() {
     if (!archivo) return;
 
     setSubiendo(true);
-    setError(null);
 
     try {
       await subirManifiesto(archivo);
@@ -78,7 +75,6 @@ export default function Home() {
     if (!archivoGeneral || !archivoVentas) return;
 
     setComparando(true);
-    setErrorComparar(null);
 
     try {
       const formData = new FormData();
@@ -243,12 +239,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {errorComparar && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
-              {errorComparar}
-            </div>
-          )}
 
           <button
             onClick={handleComparar}

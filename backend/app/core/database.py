@@ -83,14 +83,6 @@ def init_db():
     cursor.close()
     conn.close()
 
-def init_usuarios_table():
-    """Por compatibilidad, llama a init_db."""
-    init_db()
-
-def init_manifiestos_tables():
-    """Por compatibilidad, llama a init_db."""
-    init_db()
-
 def encriptar_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')

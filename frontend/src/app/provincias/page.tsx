@@ -50,6 +50,16 @@ const ORDEN_PROVINCIAS = [
   "GUANTANAMO", "ISLA DE LA JUVENTUD"
 ];
 
+// Provincias primero en orden geográfico y después el resto por orden alfabético
+function ordenarUbicaciones(a: string, b: string) {
+  const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
+  const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
+  if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+  if (indexA !== -1) return -1;
+  if (indexB !== -1) return 1;
+  return a.localeCompare(b);
+}
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
@@ -246,14 +256,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                     [
                       ...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))),
                       ...Array.from(new Set((metadata?.resumen || []).flatMap((p: any) => p.municipios || [])))
-                    ].map(String).sort((a: string, b: string) => {
-                      const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
-                      const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
-                      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                      if (indexA !== -1) return -1;
-                      if (indexB !== -1) return 1;
-                      return a.localeCompare(b);
-                    }) as string[]
+                    ].map(String).sort(ordenarUbicaciones)
                   }
                   placeholder="todas"
                 />
@@ -504,14 +507,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
                   provincias={[paradas.provincia]}
                   opciones={
                     [paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio)))]
-                      .sort((a: string, b: string) => {
-                        const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
-                        const indexB = ORDEN_PROVINCIAS.indexOf(b.toUpperCase());
-                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                        if (indexA !== -1) return -1;
-                        if (indexB !== -1) return 1;
-                        return a.localeCompare(b);
-                      })
+                      .sort(ordenarUbicaciones)
                   }
                   placeholder="todas las ubicaciones"
                 />

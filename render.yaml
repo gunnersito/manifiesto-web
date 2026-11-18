@@ -11,7 +11,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
+        value: 3.12.16
       # Render genera un valor aleatorio: la clave JWT no se escribe a mano.
       - key: SECRET_KEY
         generateValue: true

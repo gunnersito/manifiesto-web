@@ -1,6 +1,8 @@
 """
 Punto de entrada de la API FastAPI.
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import CORS_ORIGINS
@@ -9,11 +11,20 @@ from app.core.database import init_db
 # Importamos todas las rutas
 from app.api.routes import auth, usuarios, manifiestos
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Crea las tablas que falten antes de aceptar peticiones."""
+    init_db()
+    yield
+
+
 # --- Crear la app ---
 app = FastAPI(
     title="Manifiesto API",
     description="API para el análisis de manifiestos de entrega",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # --- CORS ---
@@ -27,11 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# --- Inicializar la base de datos al arrancar ---
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 # --- Incluir routers (Todos con el prefijo /api) ---
 app.include_router(auth.router, prefix="/api")

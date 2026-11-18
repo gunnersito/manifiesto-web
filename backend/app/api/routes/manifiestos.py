@@ -6,6 +6,7 @@ from typing import Optional, List
 from fastapi.responses import Response
 from io import BytesIO
 import hashlib
+import logging
 import math
 
 import pandas as pd
@@ -43,6 +44,8 @@ from app.core.database import (
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
 )
+
+logger = logging.getLogger(__name__)
 
 # Inicializamos el cliente de Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -347,7 +350,10 @@ async def guardar_endpoint(
 
     manifiesto_id = guardar_manifiesto(file.filename, df, resumen, hash_archivo)
 
-    # Guardar en Supabase Storage
+    # Guardar en Supabase Storage. Sin el archivo el manifiesto no se puede
+    # descargar ni exportar, así que si el almacenamiento falla se deshace el
+    # guardado en BD y se responde con un error claro, en vez de dejar filas
+    # huérfanas y devolver un 500 genérico.
     nombre_archivo_storage = f"manifiesto_{manifiesto_id}.xlsx"
     try:
         supabase.storage.from_("manifiestos").upload(
@@ -355,12 +361,16 @@ async def guardar_endpoint(
             file=contenido,
             file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
         )
-    except Exception:
-        supabase.storage.from_("manifiestos").update(
-            path=nombre_archivo_storage,
-            file=contenido,
-            file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-        )
+    except Exception as error:
+        logger.exception("No se pudo guardar el manifiesto %s en Storage", manifiesto_id)
+        try:
+            eliminar_manifiesto(manifiesto_id)
+        except Exception:
+            logger.exception("No se pudo deshacer el manifiesto huérfano %s", manifiesto_id)
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo guardar el archivo en el almacenamiento. No se ha guardado ningún manifiesto; inténtalo de nuevo.",
+        ) from error
 
     return {"status": "success", "manifiesto_id": manifiesto_id, "total_filas": len(df), "provincias": resumen}
 

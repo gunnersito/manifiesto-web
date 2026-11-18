@@ -12,7 +12,13 @@ def get_db_connection():
     """Retorna una nueva conexión a PostgreSQL (Supabase)."""
     # Se lee en cada conexión para que el módulo no dependa de config.py ni de
     # cuándo se cargó el .env.
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
+    dsn = os.getenv("DATABASE_URL")
+    if not dsn:
+        raise RuntimeError(
+            "Falta la variable de entorno DATABASE_URL. Defínela con la cadena de "
+            "conexión de PostgreSQL antes de arrancar la API o de crear el admin."
+        )
+    return psycopg2.connect(dsn)
 
 def init_db():
     """Crea todas las tablas necesarias si no existen."""

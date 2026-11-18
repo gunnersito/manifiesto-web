@@ -39,11 +39,16 @@ CORS_ORIGINS_DEFAULT = [
     "https://manifiesto-80y4b5dr3-manifiesto1.vercel.app",
 ]
 
-CORS_ORIGINS = [
-    origen.strip().rstrip("/")
-    for origen in os.getenv("CORS_ORIGINS", "").split(",")
-    if origen.strip()
-] or CORS_ORIGINS_DEFAULT
+_cors_entorno = os.getenv("CORS_ORIGINS", "")
+_cors_desde_entorno = [origen.strip().rstrip("/") for origen in _cors_entorno.split(",") if origen.strip()]
+if _cors_entorno and not _cors_desde_entorno:
+    raise RuntimeError(
+        "CORS_ORIGINS está definida pero no contiene ningún origen válido. "
+        "Separa los orígenes con comas (por ejemplo https://tu-app.vercel.app) "
+        "o borra la variable para usar los orígenes por defecto."
+    )
+
+CORS_ORIGINS = _cors_desde_entorno or CORS_ORIGINS_DEFAULT
 
 # --- Orden de columnas de salida ---
 ORDEN_COLUMNAS_SALIDA = [
@@ -80,10 +85,11 @@ ORDEN_PROVINCIAS = json.loads(ORDEN_PROVINCIAS_PATH.read_text(encoding="utf-8"))
 # La clave secreta NUNCA se escribe en el código: se lee de la variable de
 # entorno SECRET_KEY (Render/Vercel o backend/.env). Sin ella la API no arranca.
 SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
+if not SECRET_KEY or not SECRET_KEY.strip():
     raise RuntimeError(
         "Falta la variable de entorno SECRET_KEY. Defínela con un valor largo y "
-        "aleatorio antes de arrancar la API (por ejemplo en Render o en backend/.env)."
+        "aleatorio antes de arrancar la API (por ejemplo en Render o en backend/.env); "
+        "no puede quedar en blanco."
     )
 
 ALGORITHM = "HS256"

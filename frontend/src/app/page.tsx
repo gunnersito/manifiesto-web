@@ -120,7 +120,10 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-6">
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">📤 Subir Manifiesto</h1>
+          <h1 className="mb-2 flex items-center justify-center gap-3 text-3xl font-bold text-slate-900">
+            <Upload className="w-7 h-7 text-primary" />
+            Subir Manifiesto
+          </h1>
           <p className="text-slate-600">Sube tu archivo Excel para procesarlo y guardarlo en el sistema</p>
         </div>
 
@@ -162,7 +165,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={!archivo || subiendo}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-slate-300 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {subiendo ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /> Procesando archivo...</>
@@ -244,7 +247,7 @@ export default function Home() {
             className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
               (!archivoGeneral || !archivoVentas) 
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
-                : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+                : "bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg"
             }`}
           >
             {comparando ? (

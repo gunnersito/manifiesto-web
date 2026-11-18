@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Package } from "lucide-react";
 import { loginRequest } from "@/lib/api";
 
 export default function LoginPage() {
@@ -35,7 +36,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">📦 Manifiesto</h1>
+          <h1 className="mb-2 flex items-center justify-center gap-2 text-3xl font-bold text-slate-900">
+            <Package className="w-7 h-7 text-primary" />
+            Manifiesto
+          </h1>
           <p className="text-slate-600">Inicia sesión para continuar</p>
         </div>
 

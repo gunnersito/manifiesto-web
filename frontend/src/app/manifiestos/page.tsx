@@ -13,6 +13,8 @@ import {
   Upload,
   CheckCircle,
   Calendar,
+  FileText,
+  FolderOpen,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 
@@ -74,8 +76,9 @@ export default function ManifiestosPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              📂 Mis Manifiestos
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-900">
+              <FolderOpen className="w-7 h-7 text-primary" />
+              Mis Manifiestos
             </h1>
             <p className="text-slate-600 text-sm mt-1">
               Tienes {manifiestos.length} manifiesto(s) guardado(s)
@@ -95,7 +98,7 @@ export default function ManifiestosPage() {
         {/* Lista de tarjetas */}
         {manifiestos.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-            <div className="text-6xl mb-4">📄</div>
+            <FileText className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h2 className="text-xl font-bold text-slate-900 mb-2">
               No hay manifiestos guardados
             </h2>

@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import {
@@ -57,7 +58,10 @@ export default function ExportarPage() {
         {/* Header con Selector */}
         <div className="flex items-end justify-between flex-wrap gap-4">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-slate-900">📥 Exportar</h1>
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-900">
+              <Download className="w-7 h-7 text-primary" />
+              Exportar
+            </h1>
             <p className="text-slate-600 text-sm mt-1">
               Selecciona un manifiesto para exportar sus datos
             </p>
@@ -219,8 +223,9 @@ export default function ExportarPage() {
         </div>
 
         {/* Tip */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-          💡 <b>Tip:</b> Los Excel exportados incluyen los estados actuales (Pendiente, Despachada, Devuelto Almacén, Entregada) que hayas marcado.
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 flex items-start gap-2">
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span><b>Tip:</b> Los Excel exportados incluyen los estados actuales (Pendiente, Despachada, Devuelto Almacén, Entregada) que hayas marcado.</span>
         </div>
       </div>
       <LoadingModal

@@ -12,8 +12,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
-  AlertCircle,
+  BarChart3,
+  Boxes,
   ChevronDown,
+  LayoutDashboard,
+  MapPin,
+  Package,
+  Table,
   Upload,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
@@ -28,7 +33,7 @@ export default function DashboardPage() {
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="text-6xl mb-4">📊</div>
+            <BarChart3 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">
               No hay manifiesto cargado
             </h1>
@@ -68,7 +73,10 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">📊 Dashboard</h1>
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-900">
+              <LayoutDashboard className="w-7 h-7 text-primary" />
+              Dashboard
+            </h1>
             <p className="text-slate-600 text-sm mt-1">
               Resumen visual del manifiesto completo
             </p>
@@ -91,8 +99,9 @@ export default function DashboardPage() {
         <details className="group bg-white rounded-2xl shadow-sm border border-slate-200" open>
           <summary className="list-none cursor-pointer p-6 flex items-center gap-2 select-none">
             <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
+            <MapPin className="w-5 h-5 text-slate-500" />
             <span className="text-lg font-semibold text-slate-900">
-              📍 Paradas por provincia
+              Paradas por provincia
             </span>
             <span className="text-xs text-slate-500 ml-2">
               ({provinciasPorParadas.length} provincias)
@@ -124,8 +133,9 @@ export default function DashboardPage() {
         <details className="group bg-white rounded-2xl shadow-sm border border-slate-200" open>
           <summary className="list-none cursor-pointer p-6 flex items-center gap-2 select-none">
             <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
+            <Package className="w-5 h-5 text-slate-500" />
             <span className="text-lg font-semibold text-slate-900">
-              🎁 Bultos por provincia
+              Bultos por provincia
             </span>
             <span className="text-xs text-slate-500 ml-2">
               ({provinciasPorBultos.length} provincias)
@@ -157,8 +167,9 @@ export default function DashboardPage() {
         <details className="group bg-white rounded-2xl shadow-sm border border-slate-200" open>
           <summary className="list-none cursor-pointer p-6 flex items-center gap-2 select-none">
             <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
+            <Boxes className="w-5 h-5 text-slate-500" />
             <span className="text-lg font-semibold text-slate-900">
-              📦 HBLs por provincia
+              HBLs por provincia
             </span>
             <span className="text-xs text-slate-500 ml-2">
               ({provinciasPorHBLs.length} provincias)
@@ -190,8 +201,9 @@ export default function DashboardPage() {
         <details className="group bg-white rounded-2xl shadow-sm border border-slate-200" open>
           <summary className="list-none cursor-pointer p-6 flex items-center gap-2 select-none">
             <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
+            <Table className="w-5 h-5 text-slate-500" />
             <span className="text-lg font-semibold text-slate-900">
-              📊 Resumen por provincia
+              Resumen por provincia
             </span>
           </summary>
           <div className="p-6 pt-0">

@@ -18,13 +18,17 @@ import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
 import {
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   ChevronRight,
   ChevronDown,
   ChevronLeft,
   Upload,
   Download,
+  LayoutDashboard,
+  List,
   MapPin,
   Loader2,
+  Truck,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import {
@@ -67,7 +71,7 @@ function ProvinciasContent() {
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="text-6xl mb-4">📤</div>
+            <Upload className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">No hay manifiesto cargado</h1>
             <p className="text-slate-600 mb-6">Sube un manifiesto Excel para ver las provincias.</p>
             <Link href="/" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
@@ -405,7 +409,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-3xl mx-auto bg-white rounded-2xl p-12 text-center shadow-sm border border-slate-200">
-          <div className="text-6xl mb-4">⚠️</div>
+          <AlertTriangle className="mx-auto mb-4 h-14 w-14 text-red-400" />
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Error</h1>
           <p className="text-slate-600 mb-6">{error || "No se pudieron cargar las paradas"}</p>
           <Link href="/provincias" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
@@ -431,19 +435,19 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
             </div>
 
             <details className="group relative">
-              <summary className="list-none cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors select-none">
-                <span>📥</span> <span>Descargar</span>
+              <summary className="list-none cursor-pointer inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors select-none">
+                <Download className="w-4 h-4" /> <span>Descargar</span>
                 <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
               </summary>
               <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
                 <button onClick={() => exportarProvinciaPorId(manifiestoId, paradas.provincia, metadata?.nombre_archivo || "")} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                  <span>📥</span> Exportar manifiesto
+                  <Download className="w-4 h-4 text-slate-500" /> Exportar manifiesto
                 </button>
                 <button onClick={() => exportarHojaRutaPorId(manifiestoId, paradas.provincia, metadata?.nombre_archivo || "")} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                  <span>🚚</span> Hoja de ruta
+                  <Truck className="w-4 h-4 text-slate-500" /> Hoja de ruta
                 </button>
                 <button onClick={() => exportarPorMunicipiosPorId(manifiestoId, paradas.provincia, metadata?.nombre_archivo || "")} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                  <span>📍</span> Exportar por municipios
+                  <MapPin className="w-4 h-4 text-slate-500" /> Exportar por municipios
                 </button>
               </div>
             </details>
@@ -526,8 +530,14 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
         </details>
 
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
-          <button onClick={() => setTabActivo("paradas")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tabActivo === "paradas" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>📋 Paradas</button>
-          <button onClick={() => setTabActivo("dashboard")} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tabActivo === "dashboard" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>📊 Dashboard</button>
+          <button onClick={() => setTabActivo("paradas")} className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tabActivo === "paradas" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+            <List className="w-4 h-4" />
+            Paradas
+          </button>
+          <button onClick={() => setTabActivo("dashboard")} className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tabActivo === "dashboard" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+            <LayoutDashboard className="w-4 h-4" />
+            Dashboard
+          </button>
         </div>
 
         {tabActivo === "paradas" ? (

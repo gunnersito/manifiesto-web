@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  List,
+  Phone,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
@@ -116,7 +118,7 @@ export default function RegistrosPage() {
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="text-6xl mb-4">📋</div>
+            <List className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">
               No hay manifiesto cargado
             </h1>
@@ -125,7 +127,7 @@ export default function RegistrosPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
             >
               <Upload className="w-5 h-5" />
               Ir a Subir
@@ -172,7 +174,10 @@ export default function RegistrosPage() {
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">📋 Registros</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+            <List className="w-6 h-6 text-primary" />
+            Registros
+          </h1>
           <p className="text-slate-600 text-sm mt-1">{subtitulo}</p>
         </div>
 
@@ -430,8 +435,9 @@ function FilaRegistro({ hbl }: { hbl: HBLRegistro }) {
             {hbl.destinatario || "—"}
           </div>
           {hbl.telefono && (
-            <div className="text-[10px] text-slate-500 truncate" title={hbl.telefono}>
-              📞 {hbl.telefono}
+            <div className="flex items-center gap-1 text-[10px] text-slate-500" title={hbl.telefono}>
+              <Phone className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{hbl.telefono}</span>
             </div>
           )}
         </div>

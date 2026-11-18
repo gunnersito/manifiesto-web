@@ -14,6 +14,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { ChartPie, MapPin, Package, Route, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ParadasResponse, ParadaInfo } from "@/lib/api";
 
@@ -123,7 +124,10 @@ const municipiosPorBultos = useMemo(() => {
         {/* Distribución de estados */}
         <Card>
           <CardHeader>
-            <CardTitle>📊 Distribución de estados</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ChartPie className="w-4 h-4 text-slate-500" />
+              Distribución de estados
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -156,7 +160,10 @@ const municipiosPorBultos = useMemo(() => {
         {/* Top 10 municipios por HBLs */}
         <Card>
           <CardHeader>
-            <CardTitle>📍 Top 10 municipios por HBLs</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-slate-500" />
+              Top 10 municipios por HBLs
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
@@ -186,7 +193,10 @@ const municipiosPorBultos = useMemo(() => {
         {/* Paradas por municipio */}
         <Card>
           <CardHeader>
-            <CardTitle>📦 Paradas por municipio</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Route className="w-4 h-4 text-slate-500" />
+              Paradas por municipio
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={Math.max(300, paradasPorMunicipio.length * 35)}>
@@ -213,7 +223,10 @@ const municipiosPorBultos = useMemo(() => {
         {/* Bultos por municipio */}
         <Card>
           <CardHeader>
-            <CardTitle>🎁 Bultos por municipio</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-slate-500" />
+              Bultos por municipio
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={Math.max(300, paradasPorMunicipio.length * 35)}>
@@ -241,7 +254,10 @@ const municipiosPorBultos = useMemo(() => {
       {/* Top 10 destinatarios */}
       <Card>
         <CardHeader>
-          <CardTitle>🏆 Top 10 destinatarios por bultos</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-slate-500" />
+            Top 10 destinatarios por bultos
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>

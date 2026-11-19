@@ -35,16 +35,45 @@ interface ItemMenu {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const ITEMS: ItemMenu[] = [
-  { href: "/", label: "Subir", icon: Upload },
-  { href: "/manifiestos", label: "Manifiestos", icon: FolderOpen },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/registros", label: "Registros", icon: List },
-  { href: "/provincias", label: "Provincias", icon: MapPin },
-  { href: "/exportar", label: "Exportar", icon: Download },
-  { href: "/configuracion", label: "Configuración", icon: Settings },
-  { href: "/perfil", label: "Mi Perfil", icon: User },
+interface GrupoMenu {
+  titulo: string;
+  items: ItemMenu[];
+}
+
+// Agrupado por uso: lo que se hace con los manifiestos, el trabajo diario de
+// reparto, el análisis y lo de la cuenta.
+const GRUPOS: GrupoMenu[] = [
+  {
+    titulo: "Manifiestos",
+    items: [
+      { href: "/", label: "Subir", icon: Upload },
+      { href: "/manifiestos", label: "Manifiestos", icon: FolderOpen },
+    ],
+  },
+  {
+    titulo: "Operación",
+    items: [
+      { href: "/registros", label: "Registros", icon: List },
+      { href: "/provincias", label: "Provincias", icon: MapPin },
+    ],
+  },
+  {
+    titulo: "Análisis",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/exportar", label: "Exportar", icon: Download },
+    ],
+  },
+  {
+    titulo: "Sistema",
+    items: [
+      { href: "/configuracion", label: "Configuración", icon: Settings },
+      { href: "/perfil", label: "Mi Perfil", icon: User },
+    ],
+  },
 ];
+
+const ITEMS = GRUPOS.flatMap((grupo) => grupo.items);
 
 export default function Sidebar() {
   // `collapsed` solo afecta a escritorio: en móvil el menú es un drawer.
@@ -80,6 +109,10 @@ export default function Sidebar() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const itemActivo = ITEMS.find((item) => esActiva(item.href));
+
+  // Los invitados no ven "Subir" ni "Configuración".
+  const puedeVer = (href: string) =>
+    isAdmin || (href !== "/" && href !== "/configuracion");
 
   return (
     <TooltipProvider delay={200}>
@@ -156,55 +189,80 @@ export default function Sidebar() {
           </button>
         </div>
 
-        {/* Selector de manifiesto */}
+        {/* Selector de manifiesto global */}
         <div className={collapsed ? "lg:hidden" : ""}>
           <SelectorManifiesto />
         </div>
+        {/* Colapsado en escritorio queda solo el icono, pero sigue accesible */}
+        {collapsed && (
+          <div className="hidden lg:block">
+            <SelectorManifiesto compacto />
+          </div>
+        )}
 
-        {/* Navegación */}
-        <nav className="flex-1 overflow-y-auto py-4 space-y-1">
-          {ITEMS.filter((item) => {
-            // Ocultar "Subir" a los invitados
-            if (!isAdmin && item.href === "/") return false;
-            // Ocultar "Configuración" a los invitados (opcional, pero muy recomendado)
-            if (!isAdmin && item.href === "/configuracion") return false;
-            return true;
-          }).map((item) => {
-            const Icon = item.icon;
-            const isActive = esActiva(item.href);
+        {/* Navegación agrupada por secciones */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          {GRUPOS.map((grupo, indice) => {
+            const items = grupo.items.filter((item) => puedeVer(item.href));
+            if (items.length === 0) return null;
 
-            const contenidoBoton = (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setAbierto(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-slate-700 hover:bg-slate-100"
-                } ${collapsed ? "lg:justify-center" : ""}`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span
-                  className={`text-sm whitespace-nowrap ${
+            return (
+              <div key={grupo.titulo} className="pb-1">
+                {/* En móvil el grupo siempre se rotula; colapsado en escritorio
+                    se sustituye por un separador. */}
+                <div
+                  className={`px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 ${
                     collapsed ? "lg:hidden" : ""
                   }`}
                 >
-                  {item.label}
-                </span>
-              </Link>
+                  {grupo.titulo}
+                </div>
+                {collapsed && indice > 0 && (
+                  <div className="mx-3 mb-2 hidden border-t border-slate-200 lg:block" />
+                )}
+
+                <div className="space-y-1">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = esActiva(item.href);
+
+                    const contenidoBoton = (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setAbierto(false)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-lg transition-colors ${
+                          isActive
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-slate-700 hover:bg-slate-100"
+                        } ${collapsed ? "lg:justify-center" : ""}`}
+                      >
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span
+                          className={`text-sm whitespace-nowrap ${
+                            collapsed ? "lg:hidden" : ""
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </Link>
+                    );
+
+                    if (collapsed) {
+                      return (
+                        <Tooltip key={item.href}>
+                          <TooltipTrigger>{contenidoBoton}</TooltipTrigger>
+                          <TooltipContent side="right">{item.label}</TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+
+                    return contenidoBoton;
+                  })}
+                </div>
+              </div>
             );
-
-            if (collapsed) {
-              return (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger>{contenidoBoton}</TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            return contenidoBoton;
           })}
         </nav>
 

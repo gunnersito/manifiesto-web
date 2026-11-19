@@ -1,7 +1,8 @@
 "use client";
 import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Upload,
   Search,
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   List,
   Phone,
+  X,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
@@ -31,86 +33,180 @@ import {
 } from "@/components/ui/select";
 
 const ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
+const POR_PAGINA_DEFECTO = 15;
+const OPCIONES_POR_PAGINA = [15, 25, 50, 100];
 
-export default function RegistrosPage() {
-  const { metadata, manifiestos } = useManifiesto();
+type ChipFiltro = {
+  clave: "manifiesto" | "q" | "estado" | "ubicacion";
+  campo: string;
+  etiqueta: string;
+  valor?: string;
+};
+
+function RegistrosContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { metadata, manifiestos, loadingManifiestos } = useManifiesto();
   const manifiestoActivoId = metadata?.id ?? null;
-  const [pagina, setPagina] = useState(1);
-  const [porPagina, setPorPagina] = useState(15);
-  const [busqueda, setBusqueda] = useState("");
-  const [estadoFiltro, setEstadoFiltro] = useState("");
-  const [provinciaFiltro, setProvinciaFiltro] = useState<string[]>([]);
-  const [manifiestoFiltro, setManifiestoFiltro] = useState<string>("activo");
+
+  // La URL es la fuente de verdad de los filtros: recargar o compartir el
+  // enlace devuelve exactamente la misma vista.
+  const manifiestoFiltro = searchParams.get("manifiesto") || "activo";
+  const busqueda = searchParams.get("q") || "";
+  const estadoFiltro = searchParams.get("estado") || "";
+  const provinciaFiltro = (searchParams.get("ubicacion") || "")
+    .split(",")
+    .map((valor) => valor.trim())
+    .filter(Boolean);
+  const pagina = Math.max(1, Number(searchParams.get("pagina")) || 1);
+  const porPagina = Number(searchParams.get("porPagina")) || POR_PAGINA_DEFECTO;
+
+  // Solo el texto se escribe en local; pasa a la URL con Enter o el botón.
+  const [texto, setTexto] = useState(busqueda);
   const [datos, setDatos] = useState<HBLsPaginaResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtros explícitos para poder recargar sin esperar al re-render de los estados
-  type Filtros = {
-    porPagina?: number;
-    busqueda?: string;
-    estado?: string;
-    provincia?: string[];
+  // Mantiene el input al día si la URL cambia (chips, atrás/adelante).
+  useEffect(() => {
+    setTexto(busqueda);
+  }, [busqueda]);
+
+  const actualizarUrl = (cambios: Record<string, string | string[] | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(cambios).forEach(([clave, valor]) => {
+      const limpio = Array.isArray(valor) ? valor.join(",") : valor;
+      if (limpio) params.set(clave, limpio);
+      else params.delete(clave);
+    });
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   // El selector puede apuntar al manifiesto activo, a uno concreto o a todos;
   // null significa "todos" (el backend no filtra).
-  const manifiestoFiltrado = () => {
-    if (manifiestoFiltro === "todos") return null;
-    if (manifiestoFiltro === "activo") return metadata;
-    return manifiestos.find((m) => String(m.id) === manifiestoFiltro) ?? null;
-  };
+  const manifiestoEnFoco =
+    manifiestoFiltro === "todos"
+      ? null
+      : manifiestoFiltro === "activo"
+        ? metadata
+        : manifiestos.find((m) => String(m.id) === manifiestoFiltro) ?? null;
 
-  // Cargar datos
-  const cargarDatos = async (nuevaPagina = pagina, filtros: Filtros = {}) => {
+  // Con "Manifiesto activo" esperamos al contexto y con un id concreto a la
+  // lista, para no pedir en la primera carga los HBLs del manifiesto equivocado.
+  const esperandoContexto =
+    (manifiestoFiltro === "activo" && !manifiestoActivoId) ||
+    (manifiestoFiltro !== "activo" &&
+      manifiestoFiltro !== "todos" &&
+      loadingManifiestos);
+  const idParaFiltrar = manifiestoEnFoco?.id ?? null;
+  const claveUbicacion = provinciaFiltro.join(",");
+
+  useEffect(() => {
+    if (esperandoContexto) return;
+    let cancelado = false;
     setLoading(true);
     setError(null);
-    try {
-      const idParaFiltrar = manifiestoFiltrado()?.id ?? null;
+    obtenerTodosLosHBLs(
+      idParaFiltrar,
+      pagina,
+      porPagina,
+      busqueda,
+      estadoFiltro,
+      claveUbicacion
+    )
+      .then((result) => {
+        if (!cancelado) setDatos(result);
+      })
+      .catch((err: any) => {
+        if (!cancelado) setError(err.message || "Error al cargar los registros");
+      })
+      .finally(() => {
+        if (!cancelado) setLoading(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    idParaFiltrar,
+    pagina,
+    porPagina,
+    busqueda,
+    estadoFiltro,
+    claveUbicacion,
+    esperandoContexto,
+  ]);
 
-      const result = await obtenerTodosLosHBLs(
-        idParaFiltrar,
-        nuevaPagina,
-        filtros.porPagina ?? porPagina,
-        filtros.busqueda ?? busqueda,
-        filtros.estado ?? estadoFiltro,
-        (filtros.provincia ?? provinciaFiltro).join(",")
-      );
-      setDatos(result);
-      setPagina(nuevaPagina);
-    } catch (err: any) {
-      setError(err.message || "Error al cargar los registros");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const cambiarManifiesto = (valor: string) =>
+    actualizarUrl({
+      manifiesto: valor === "activo" ? null : valor,
+      pagina: null,
+    });
 
-  // Cargar al montar y cada vez que cambie el manifiesto activo elegido
-  useEffect(() => {
-    // Con "Manifiesto activo" esperamos a que el contexto lo resuelva, para no
-    // pedir en la primera carga los HBLs de todos los manifiestos mezclados.
-    if (manifiestoFiltro === "activo" && !manifiestoActivoId) return;
-    cargarDatos(1);
-  }, [manifiestoFiltro, manifiestoActivoId]);
+  const aplicarBusqueda = () =>
+    actualizarUrl({ q: texto.trim() || null, pagina: null });
 
-  const aplicarFiltros = () => cargarDatos(1);
+  const cambiarEstado = (valor: string) =>
+    actualizarUrl({ estado: valor || null, pagina: null });
 
-  const limpiarFiltros = () => {
-    setBusqueda("");
-    setEstadoFiltro("");
-    setProvinciaFiltro([]);
-    cargarDatos(1, { busqueda: "", estado: "", provincia: [] });
-  };
+  const cambiarUbicaciones = (valores: string[]) =>
+    actualizarUrl({ ubicacion: valores, pagina: null });
 
   const cambiarPagina = (nueva: number) => {
     if (nueva < 1 || (datos && nueva > datos.total_paginas)) return;
-    cargarDatos(nueva);
+    actualizarUrl({ pagina: nueva > 1 ? String(nueva) : null });
   };
 
-  const cambiarPorPagina = (nuevo: number) => {
-    setPorPagina(nuevo);
-    cargarDatos(1, { porPagina: nuevo });
+  const cambiarPorPagina = (nuevo: number) =>
+    actualizarUrl({
+      porPagina: nuevo === POR_PAGINA_DEFECTO ? null : String(nuevo),
+      pagina: null,
+    });
+
+  const quitarFiltro = (clave: ChipFiltro["clave"], valor?: string) => {
+    if (clave === "ubicacion") {
+      actualizarUrl({
+        ubicacion: provinciaFiltro.filter((ubicacion) => ubicacion !== valor),
+        pagina: null,
+      });
+      return;
+    }
+    actualizarUrl({ [clave]: null, pagina: null });
   };
+
+  const limpiarFiltros = () =>
+    actualizarUrl({
+      manifiesto: null,
+      q: null,
+      estado: null,
+      ubicacion: null,
+      pagina: null,
+    });
+
+  // Chips de lo que está aplicado, para poder quitar cada filtro por separado.
+  const chips: ChipFiltro[] = [];
+  if (manifiestoFiltro !== "activo") {
+    chips.push({
+      clave: "manifiesto",
+      campo: "Manifiesto",
+      etiqueta: manifiestoEnFoco?.nombre_archivo ?? "Todos los manifiestos",
+    });
+  }
+  if (busqueda) {
+    chips.push({ clave: "q", campo: "Búsqueda", etiqueta: `“${busqueda}”` });
+  }
+  if (estadoFiltro) {
+    chips.push({ clave: "estado", campo: "Estado", etiqueta: estadoFiltro });
+  }
+  provinciaFiltro.forEach((ubicacion) =>
+    chips.push({
+      clave: "ubicacion",
+      valor: ubicacion,
+      campo: "Ubicación",
+      etiqueta: ubicacion,
+    })
+  );
 
   // Sin datos
   if (!metadata) {
@@ -164,7 +260,6 @@ export default function RegistrosPage() {
 
   // La cabecera sigue al filtro: si se miran todos los manifiestos o uno
   // concreto, no debe anunciar los datos del que está activo.
-  const manifiestoEnFoco = manifiestoFiltrado();
   const subtitulo = manifiestoEnFoco
     ? `${manifiestoEnFoco.nombre_archivo} · ${manifiestoEnFoco.total_filas} HBLs`
     : `Todos los manifiestos · ${datos?.total ?? 0} HBLs`;
@@ -188,111 +283,132 @@ export default function RegistrosPage() {
           </div>
         )}
 
-        {/* Filtros */}
-        <details className="group bg-white rounded-lg border border-slate-200">
-          <summary className="list-none cursor-pointer p-4 flex items-center justify-between gap-3 select-none flex-wrap">
-            <div className="flex items-center gap-2">
-              <ChevronRight className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-90" />
-              <span className="font-semibold text-slate-900">
-                Filtros de Búsqueda
-              </span>
-              {(busqueda || estadoFiltro || provinciaFiltro) && (
-                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
-                  activos
-                </span>
-              )}
+        {/* Filtros: siempre visibles, con chips de lo aplicado */}
+        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="w-full min-w-0">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Manifiesto
+              </label>
+              <select
+                value={manifiestoFiltro}
+                onChange={(e) => cambiarManifiesto(e.target.value)}
+                className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="activo">Manifiesto activo</option>
+                <option value="todos">Todos los manifiestos</option>
+                {manifiestos.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre_archivo}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={aplicarFiltros} disabled={loading}>
-                <Search className="w-4 h-4 mr-1" />
-                Buscar
-              </Button>
-              <Button variant="outline" onClick={limpiarFiltros} disabled={loading}>
-                Limpiar
-              </Button>
-            </div>
-          </summary>
 
-                    <div className="p-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-              {/* 1. Filtro de Manifiesto */}
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Manifiesto
-                </label>
-                <select
-                  value={manifiestoFiltro}
-                  onChange={(e) => setManifiestoFiltro(e.target.value)}
-                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="activo">Manifiesto activo</option>
-                  <option value="todos">Todos los manifiestos</option>
-                  {manifiestos.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre_archivo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 1. Filtro de Búsqueda */}
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Filtro
-                </label>
+            <div className="w-full min-w-0">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Filtro
+              </label>
+              <div className="flex gap-2">
                 <Input
                   placeholder="HBL, remitente, destinatario..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") aplicarFiltros();
+                    if (e.key === "Enter") aplicarBusqueda();
                   }}
                   className="h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
-              </div>
-
-              {/* 2. Filtro Provincia / Municipio */}
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Provincia / Municipio
-                </label>
-                <AutocompleteUbicacion
-                  values={provinciaFiltro}
-                  onChange={setProvinciaFiltro}
-                  opciones={ubicacionesFinales}
-                  provincias={metadata?.resumen.map((p) => p.provincia) || []}
-                  placeholder="todas las ubicaciones"
-                />
-              </div>
-
-              {/* 3. Filtro Estado */}
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Estado
-                </label>
-                <Select
-                  value={estadoFiltro || "todos"}
-                  onValueChange={(value) =>
-                    setEstadoFiltro(!value || value === "todos" ? "" : value)
-                  }
+                <Button
+                  onClick={aplicarBusqueda}
+                  disabled={loading || texto.trim() === busqueda}
+                  aria-label="Buscar"
+                  className="!h-[42px] !px-3"
                 >
-                  <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    {ESTADOS.map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Search className="w-4 h-4" />
+                </Button>
               </div>
             </div>
+
+            <div className="w-full min-w-0">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Provincia / Municipio
+              </label>
+              <AutocompleteUbicacion
+                values={provinciaFiltro}
+                onChange={cambiarUbicaciones}
+                opciones={ubicacionesFinales}
+                provincias={metadata?.resumen.map((p) => p.provincia) || []}
+                placeholder="todas las ubicaciones"
+              />
+            </div>
+
+            <div className="w-full min-w-0">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Estado
+              </label>
+              <Select
+                value={estadoFiltro || "todos"}
+                onValueChange={(value) =>
+                  cambiarEstado(!value || value === "todos" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {ESTADOS.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </details>
+
+          {/* Chips: cada filtro aplicado se puede quitar por separado */}
+          <div className="flex flex-wrap items-center gap-2">
+            {chips.length === 0 ? (
+              <span className="text-xs text-slate-500">
+                Sin filtros aplicados: se muestra todo el manifiesto.
+              </span>
+            ) : (
+              <>
+                {chips.map((chip) => (
+                  <span
+                    key={`${chip.clave}-${chip.valor ?? ""}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-1 pl-2.5 pr-1 text-xs text-slate-700"
+                  >
+                    <span className="text-slate-500">{chip.campo}:</span>
+                    <span
+                      className="max-w-[16rem] truncate font-medium"
+                      title={chip.etiqueta}
+                    >
+                      {chip.etiqueta}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarFiltro(chip.clave, chip.valor)}
+                      className="rounded-full p-0.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                      aria-label={`Quitar filtro ${chip.campo}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="ml-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Limpiar todo
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Tabla */}
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -338,10 +454,11 @@ export default function RegistrosPage() {
                   onChange={(e) => cambiarPorPagina(Number(e.target.value))}
                   className="px-2 py-1 border border-slate-300 rounded text-sm bg-white"
                 >
-                  <option value={15}>15</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
+                  {OPCIONES_POR_PAGINA.map((cantidad) => (
+                    <option key={cantidad} value={cantidad}>
+                      {cantidad}
+                    </option>
+                  ))}
                 </select>
                 <span className="text-sm text-slate-600">por página</span>
               </div>
@@ -374,6 +491,23 @@ export default function RegistrosPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// `useSearchParams` necesita un límite de Suspense en el render estático.
+export default function RegistrosPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+          <div className="mx-auto max-w-7xl py-12 text-center text-slate-500">
+            Cargando registros...
+          </div>
+        </main>
+      }
+    >
+      <RegistrosContent />
+    </Suspense>
   );
 }
 

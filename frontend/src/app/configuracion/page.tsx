@@ -126,7 +126,7 @@ export default function ConfiguracionPage() {
   };
 
   if (esAdmin === null) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
   if (!esAdmin) {
@@ -148,7 +148,7 @@ export default function ConfiguracionPage() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <UserPlus className="w-5 h-5 text-blue-600" />
+          <UserPlus className="w-5 h-5 text-primary" />
           Crear nuevo usuario
         </h2>
 
@@ -218,7 +218,7 @@ export default function ConfiguracionPage() {
             <Button
               type="submit"
               disabled={creando}
-              className="bg-blue-600 hover:bg-blue-700 !h-[42px] px-6 font-medium"
+              className="bg-primary hover:bg-primary/90 !h-[42px] px-6 font-medium"
             >
               {creando ? <Loader2 className="w-4 h-4 animate-spin" /> : "Crear"}
             </Button>
@@ -235,7 +235,7 @@ export default function ConfiguracionPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+          <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
         ) : error ? (
           <div className="p-6 text-red-600 bg-red-50">{error}</div>
         ) : (
@@ -253,7 +253,7 @@ export default function ConfiguracionPage() {
                   <td className="px-6 py-4 font-medium text-slate-900">{u.username}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'
+                      u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-700'
                     }`}>
                       {u.role.toUpperCase()}
                     </span>
@@ -270,7 +270,7 @@ export default function ConfiguracionPage() {
                             setEditPassword("");
                             setEditPasswordConfirm("");
                           }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                           title="Editar usuario"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -371,7 +371,7 @@ export default function ConfiguracionPage() {
                 <Button type="button" variant="outline" onClick={() => setUsuarioEditando(null)} className="!h-[42px]">
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={guardandoEdit} className="bg-blue-600 hover:bg-blue-700 !h-[42px]">
+                <Button type="submit" disabled={guardandoEdit} className="bg-primary hover:bg-primary/90 !h-[42px]">
                   {guardandoEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar Cambios"}
                 </Button>
               </div>

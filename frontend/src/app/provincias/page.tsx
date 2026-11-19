@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
+import { toast } from "sonner";
 import {
   CheckCircle,
   AlertCircle,
@@ -74,7 +75,7 @@ function ProvinciasContent() {
             <Upload className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">No hay manifiesto cargado</h1>
             <p className="text-slate-600 mb-6">Sube un manifiesto Excel para ver las provincias.</p>
-            <Link href="/" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+            <Link href="/" className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors">
               <Upload className="w-5 h-5" /> Ir a Subir
             </Link>
           </div>
@@ -178,9 +179,9 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
               onClick={async () => {
                 try {
                   await exportarTodasProvinciasPorId(manifiestoId, metadata?.nombre_archivo || "");
-                } catch (err) { alert("Error al exportar todas las provincias"); }
+                } catch (err) { toast.error("Error al exportar todas las provincias"); }
               }}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all"
             >
               <Download className="w-4 h-4" /> Exportar todas
             </button>
@@ -200,7 +201,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
               <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
               <span className="font-semibold text-slate-900">Filtros de Búsqueda</span>
               {(busqueda || estado || ubicacion) && (
-                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">activos</span>
+                <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">activos</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -224,7 +225,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                     const nuevoId = Number(e.target.value);
                     if (nuevoId) await seleccionarManifiesto(nuevoId);
                   }}
-                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {manifiestos.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -305,15 +306,15 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
                 <Link
                   key={p.provincia}
                   href={`/provincias?nombre=${encodeURIComponent(p.provincia)}`}
-                  className="border border-slate-200 rounded-lg p-4 text-left hover:border-blue-400 hover:shadow-md hover:bg-blue-50/30 transition-all group block"
+                  className="border border-slate-200 rounded-lg p-4 text-left hover:border-primary/40 hover:shadow-md hover:bg-primary/5 transition-all group block"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-medium text-slate-900">{p.provincia}</div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-all" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-primary transition-all" />
                   </div>
                   <div className="flex gap-4 text-sm">
                     <span className="text-slate-600"><b>{p.hbls}</b> HBLs</span>
-                    <span className="text-blue-600"><b>{p.paradas}</b> paradas</span>
+                    <span className="text-primary"><b>{p.paradas}</b> paradas</span>
                     <span className="text-slate-600"><b>{p.bultos}</b> bultos</span>
                   </div>
                 </Link>
@@ -398,7 +399,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-3xl mx-auto bg-white rounded-2xl p-12 text-center shadow-sm border border-slate-200">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-slate-600">Cargando paradas de {provincia}...</p>
         </div>
       </main>
@@ -412,7 +413,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
           <AlertTriangle className="mx-auto mb-4 h-14 w-14 text-red-400" />
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Error</h1>
           <p className="text-slate-600 mb-6">{error || "No se pudieron cargar las paradas"}</p>
-          <Link href="/provincias" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+          <Link href="/provincias" className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors">
             ← Volver a provincias
           </Link>
         </div>
@@ -423,14 +424,14 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <Link href="/provincias" className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 text-sm transition-colors">
+        <Link href="/provincias" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary text-sm transition-colors">
           <ChevronLeft className="w-4 h-4" /> Volver a provincias
         </Link>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <MapPin className="w-6 h-6 text-blue-600" />
+              <MapPin className="w-6 h-6 text-primary" />
               <h2 className="text-2xl font-bold text-slate-900">{paradas.provincia}</h2>
             </div>
 
@@ -483,7 +484,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
                     const nuevoId = Number(e.target.value);
                     if (nuevoId) await seleccionarManifiesto(nuevoId);
                   }}
-                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {manifiestos.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -604,16 +605,16 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
       await actualizarEstadosMasivos(hbls.map((h) => h.hbl), "Entregada");
       setHbls((prev) => prev ? prev.map((item) => ({ ...item, estado: "Entregada" })) : null);
       onUpdate("Entregada");
-    } catch (err: any) { alert(`Error: ${err.response?.data?.detail || err.message}`); } finally { setMarcandoTodas(false); }
+    } catch (err: any) { toast.error(`Error: ${err.response?.data?.detail || err.message}`); } finally { setMarcandoTodas(false); }
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden transition-colors hover:border-blue-300">
+    <div className="border border-slate-200 rounded-lg overflow-hidden transition-colors hover:border-primary/30">
       <button onClick={toggleExpand} className="w-full text-left p-4 hover:bg-slate-50 transition-colors">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{parada.Parada}</span>
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold">{parada.Parada}</span>
               <span className="font-medium text-slate-900 truncate">{parada.Destinatario || "—"}</span>
               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
             </div>
@@ -630,7 +631,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
 
       {expanded && (
         <div className="border-t border-slate-200 bg-slate-50 p-4">
-          {loading && <div className="flex items-center gap-2 text-blue-600 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Cargando HBLs...</div>}
+          {loading && <div className="flex items-center gap-2 text-primary text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Cargando HBLs...</div>}
           {!loading && hbls && (
             <>
               <div className="mb-3 flex justify-end">
@@ -684,7 +685,7 @@ function EstadoBadge({ estado, hbl, onChange }: { estado?: string, hbl: string, 
   const estados = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
   const colores: Record<string, string> = {
     Pendiente: "bg-slate-100 text-slate-700 border-slate-200",
-    Despachada: "bg-blue-100 text-blue-700 border-blue-200",
+    Despachada: "bg-primary/10 text-primary border-primary/20",
     "Devuelto Almacén": "bg-red-100 text-red-700 border-red-200",
     Entregada: "bg-green-100 text-green-700 border-green-200",
   };

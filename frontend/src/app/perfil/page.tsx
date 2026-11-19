@@ -39,7 +39,7 @@ export default function PerfilPage() {
       setConfirmPassword("");
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al cambiar contraseña");
+      toast.error(err.response?.data?.detail || "Error al cambiar contraseña");
     } finally {
       setLoading(false);
     }
@@ -47,14 +47,14 @@ export default function PerfilPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-12 px-4">
-      <Link href="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 mb-6">
+      <Link href="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary mb-6">
         <ArrowLeft className="w-4 h-4" /> Volver al inicio
       </Link>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
         <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <KeyRound className="w-6 h-6 text-blue-600" />
+          <div className="bg-primary/10 p-3 rounded-full">
+            <KeyRound className="w-6 h-6 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Mi Perfil</h1>
@@ -119,7 +119,7 @@ export default function PerfilPage() {
             )}
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 !h-[42px] mt-2">
+          <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 !h-[42px] mt-2">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Actualizar Contraseña"}
           </Button>
         </form>

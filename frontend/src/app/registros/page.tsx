@@ -59,8 +59,14 @@ function RegistrosContent() {
     .split(",")
     .map((valor) => valor.trim())
     .filter(Boolean);
-  const pagina = Math.max(1, Number(searchParams.get("pagina")) || 1);
-  const porPagina = Number(searchParams.get("porPagina")) || POR_PAGINA_DEFECTO;
+  // Página y tamaño solo admiten valores válidos: un enlace manipulado no
+  // puede pedir una página imposible ni un tamaño fuera del selector.
+  const paginaParam = Number(searchParams.get("pagina"));
+  const pagina = Number.isInteger(paginaParam) && paginaParam >= 1 ? paginaParam : 1;
+  const porPaginaParam = searchParams.get("porPagina");
+  const porPagina = OPCIONES_POR_PAGINA.includes(Number(porPaginaParam))
+    ? Number(porPaginaParam)
+    : POR_PAGINA_DEFECTO;
 
   // Solo el texto se escribe en local; pasa a la URL con Enter o el botón.
   const [texto, setTexto] = useState(busqueda);
@@ -74,7 +80,11 @@ function RegistrosContent() {
   }, [busqueda]);
 
   const actualizarUrl = (cambios: Record<string, string | string[] | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
+    // Se parte de la URL viva y no del `searchParams` del render: una respuesta
+    // asíncrona puede llegar después de otra navegación y resucitar valores viejos.
+    const params = new URLSearchParams(
+      typeof window === "undefined" ? searchParams.toString() : window.location.search
+    );
     Object.entries(cambios).forEach(([clave, valor]) => {
       const limpio = Array.isArray(valor) ? valor.join(",") : valor;
       if (limpio) params.set(clave, limpio);
@@ -103,28 +113,59 @@ function RegistrosContent() {
   const idParaFiltrar = manifiestoEnFoco?.id ?? null;
   const claveUbicacion = provinciaFiltro.join(",");
 
+  // Un tamaño que no está en el selector se descarta también de la URL, para
+  // que el enlace no anuncie algo distinto de lo que se ve.
+  useEffect(() => {
+    if (porPaginaParam === null) return;
+    if (OPCIONES_POR_PAGINA.includes(Number(porPaginaParam))) return;
+    actualizarUrl({ porPagina: null });
+  }, [porPaginaParam]);
+
   useEffect(() => {
     if (esperandoContexto) return;
     let cancelado = false;
-    setLoading(true);
-    setError(null);
-    obtenerTodosLosHBLs(
-      idParaFiltrar,
-      pagina,
-      porPagina,
-      busqueda,
-      estadoFiltro,
-      claveUbicacion
-    )
-      .then((result) => {
-        if (!cancelado) setDatos(result);
-      })
-      .catch((err: any) => {
+
+    const cargar = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await obtenerTodosLosHBLs(
+          idParaFiltrar,
+          pagina,
+          porPagina,
+          busqueda,
+          estadoFiltro,
+          claveUbicacion
+        );
+        if (cancelado) return;
+
+        // Si la página pedida ya no existe (enlace viejo, o filtros que dejan
+        // menos resultados) se muestra la última en lugar de una tabla vacía.
+        if (result.total_paginas > 0 && pagina > result.total_paginas) {
+          const ultima = result.total_paginas;
+          const corregido = await obtenerTodosLosHBLs(
+            idParaFiltrar,
+            ultima,
+            porPagina,
+            busqueda,
+            estadoFiltro,
+            claveUbicacion
+          );
+          if (cancelado) return;
+          setDatos(corregido);
+          actualizarUrl({ pagina: ultima > 1 ? String(ultima) : null });
+          return;
+        }
+
+        setDatos(result);
+      } catch (err: any) {
         if (!cancelado) setError(err.message || "Error al cargar los registros");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelado) setLoading(false);
-      });
+      }
+    };
+
+    cargar();
     return () => {
       cancelado = true;
     };

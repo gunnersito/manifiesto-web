@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, FileSpreadsheet, FileText, Loader2, Upload, X } from "lucide-react";
 import { API_URL, subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
@@ -119,49 +119,25 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
 
-        <div className="text-center mb-8">
-          <h1 className="mb-2 flex items-center justify-center gap-3 text-3xl font-bold text-slate-900">
+        <div>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-900">
             <Upload className="w-7 h-7 text-primary" />
-            Subir Manifiesto
+            Subir manifiesto
           </h1>
-          <p className="text-slate-600">Sube tu archivo Excel para procesarlo y guardarlo en el sistema</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Sube tu archivo Excel para procesarlo y guardarlo en el sistema
+          </p>
         </div>
 
         {/* Tarjeta de Subida Normal */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <form onSubmit={handleSubir} className="space-y-6">
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:bg-slate-50 transition-colors relative cursor-pointer">
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-
-              <div className="flex items-center justify-center gap-2">
-                <p className="text-slate-700 font-medium">
-                  {archivo ? archivo.name : "Arrastra tu archivo aquí o haz clic para buscar"}
-                </p>
-                {archivo && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setArchivo(null);
-                      const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-                      if (input) input.value = "";
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors z-10 relative"
-                    title="Quitar archivo"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <p className="text-sm text-slate-500 mt-1">Formatos soportados: .xlsx, .xls, .csv</p>
-            </div>
+            <ZonaArchivo
+              id="archivo-manifiesto"
+              archivo={archivo}
+              onArchivo={setArchivo}
+              grande
+            />
             <button
               type="submit"
               disabled={!archivo || subiendo}
@@ -188,56 +164,22 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {/* Manifiesto General */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto General</label>
-              <div className="relative">
-                <input
-                  type="file"
-                  onChange={(e) => setArchivoGeneral(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 pr-10"
-                />
-                {archivoGeneral && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setArchivoGeneral(null);
-                      const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-                      if (input) input.value = "";
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Quitar archivo general"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              <span className="block text-sm font-medium text-slate-700 mb-2">Manifiesto general</span>
+              <ZonaArchivo
+                id="archivo-general"
+                archivo={archivoGeneral}
+                onArchivo={setArchivoGeneral}
+              />
             </div>
 
             {/* Manifiesto de Ventas */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto de Ventas</label>
-              <div className="relative">
-                <input
-                  type="file"
-                  onChange={(e) => setArchivoVentas(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 pr-10"
-                />
-                {archivoVentas && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setArchivoVentas(null);
-                      const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-                      if (input) input.value = "";
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Quitar archivo de ventas"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              <span className="block text-sm font-medium text-slate-700 mb-2">Manifiesto de ventas</span>
+              <ZonaArchivo
+                id="archivo-ventas"
+                archivo={archivoVentas}
+                onArchivo={setArchivoVentas}
+              />
             </div>
           </div>
 
@@ -289,5 +231,115 @@ export default function Home() {
         text={subiendo ? "Subiendo y procesando el manifiesto..." : "Comparando manifiestos..."}
       />
     </main>
+  );
+}
+
+// ============================================================
+// COMPONENTE: zona para elegir o arrastrar un archivo
+// ============================================================
+function ZonaArchivo({
+  id,
+  archivo,
+  onArchivo,
+  grande = false,
+}: {
+  id: string;
+  archivo: File | null;
+  onArchivo: (archivo: File | null) => void;
+  grande?: boolean;
+}) {
+  const [arrastrando, setArrastrando] = useState(false);
+
+  const quitar = (evento: React.MouseEvent) => {
+    evento.preventDefault();
+    evento.stopPropagation();
+    onArchivo(null);
+  };
+
+  const soltar = (evento: React.DragEvent) => {
+    evento.preventDefault();
+    setArrastrando(false);
+    const soltado = evento.dataTransfer.files?.[0];
+    if (soltado) onArchivo(soltado);
+  };
+
+  return (
+    <label
+      htmlFor={id}
+      onDragOver={(evento) => {
+        evento.preventDefault();
+        setArrastrando(true);
+      }}
+      onDragLeave={() => setArrastrando(false)}
+      onDrop={soltar}
+      className={`flex cursor-pointer rounded-lg border-2 border-dashed transition-colors ${
+        arrastrando
+          ? "border-primary bg-primary/5"
+          : "border-slate-300 hover:border-primary/60 hover:bg-slate-50"
+      } ${
+        grande
+          ? "flex-col items-center gap-2 p-10 text-center"
+          : "items-center gap-3 px-4 py-3 text-left"
+      }`}
+    >
+      <input
+        key={archivo ? "con-archivo" : "sin-archivo"}
+        id={id}
+        type="file"
+        accept=".xlsx, .xls, .csv"
+        onChange={(e) => onArchivo(e.target.files?.[0] ?? null)}
+        className="sr-only"
+      />
+
+      {grande ? (
+        <>
+          <Upload className="w-12 h-12 text-slate-400" />
+          <p className="font-medium text-slate-700">
+            {archivo
+              ? archivo.name
+              : "Arrastra tu archivo aquí o haz clic para buscar"}
+          </p>
+          <p className="text-sm text-slate-500">
+            Formatos soportados: .xlsx, .xls, .csv
+          </p>
+          {archivo && (
+            <button
+              type="button"
+              onClick={quitar}
+              className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-red-600"
+            >
+              <X className="w-3.5 h-3.5" />
+              Quitar archivo
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <FileSpreadsheet className="w-5 h-5 flex-shrink-0 text-slate-400" />
+          <span
+            className={`min-w-0 flex-1 truncate text-sm ${
+              archivo ? "font-medium text-slate-900" : "text-slate-500"
+            }`}
+            title={archivo?.name}
+          >
+            {archivo ? archivo.name : "Ningún archivo elegido"}
+          </span>
+          {archivo ? (
+            <button
+              type="button"
+              onClick={quitar}
+              aria-label="Quitar archivo"
+              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <span className="flex-shrink-0 text-xs font-medium text-primary">
+              Elegir
+            </span>
+          )}
+        </>
+      )}
+    </label>
   );
 }

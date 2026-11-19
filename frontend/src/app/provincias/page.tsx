@@ -40,6 +40,30 @@ import {
 import Dashboard from "@/components/Dashboard";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 
+// Agrupa los HBLs que devuelve una búsqueda para que cada provincia muestre sus
+// totales reales: "parada" es 1 en el primer HBL de cada parada, igual que en el resumen
+function agruparHBLsPorProvincia(hbls: HBLRegistro[]): ManifiestoResumen[] {
+  const grupos = new Map<string, { hbls: number; paradas: number; bultos: number; municipios: Set<string> }>();
+
+  for (const h of hbls) {
+    const provincia = h.provincia || "Sin provincia";
+    const grupo = grupos.get(provincia) ?? { hbls: 0, paradas: 0, bultos: 0, municipios: new Set<string>() };
+    grupo.hbls += 1;
+    grupo.paradas += Number(h.parada) || 0;
+    grupo.bultos += Number(h.bultos) || 0;
+    if (h.municipio) grupo.municipios.add(h.municipio);
+    grupos.set(provincia, grupo);
+  }
+
+  return Array.from(grupos, ([provincia, grupo]) => ({
+    provincia,
+    hbls: grupo.hbls,
+    paradas: grupo.paradas,
+    bultos: grupo.bultos,
+    municipios: Array.from(grupo.municipios),
+  })).sort((a, b) => ordenarUbicaciones(a.provincia, b.provincia));
+}
+
 // Provincias primero en orden geográfico y después el resto por orden alfabético
 function ordenarUbicaciones(a: string, b: string) {
   const indexA = ORDEN_PROVINCIAS.indexOf(a.toUpperCase());
@@ -77,10 +101,25 @@ function ProvinciasContent() {
   }
 
   if (provinciaSeleccionada) {
-    return <DetalleProvincia provincia={provinciaSeleccionada} manifiestoId={manifiestoId} metadata={metadata} />;
+    return (
+      <DetalleProvincia
+        provincia={provinciaSeleccionada}
+        manifiestoId={manifiestoId}
+        metadata={metadata}
+        busquedaInicial={searchParams.get("q") || ""}
+        estadoInicial={searchParams.get("estado") || ""}
+      />
+    );
   }
 
-  return <ResumenProvincias manifiestoId={manifiestoId} metadata={metadata} />;
+  return (
+    <ResumenProvincias
+      manifiestoId={manifiestoId}
+      metadata={metadata}
+      busquedaInicial={searchParams.get("q") || ""}
+      estadoInicial={searchParams.get("estado") || ""}
+    />
+  );
 }
 
 export default function ProvinciasPage() {
@@ -94,13 +133,13 @@ export default function ProvinciasPage() {
 // ============================================================
 // VISTA 1: RESUMEN / TARJETAS
 // ============================================================
-function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, metadata: any }) {
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState("");
+function ResumenProvincias({ manifiestoId, metadata, busquedaInicial = "", estadoInicial = "" }: { manifiestoId: number, metadata: any, busquedaInicial?: string, estadoInicial?: string }) {
+  const [busqueda, setBusqueda] = useState(busquedaInicial);
+  const [estado, setEstado] = useState(estadoInicial);
   const [ubicacion, setUbicacion] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [haBuscado, setHaBuscado] = useState(false);
+  const [haBuscado, setHaBuscado] = useState(Boolean(busquedaInicial || estadoInicial));
   const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,12 +168,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
       } else if (busqueda || estado) {
         const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, "");
         setParadasBuscadas(null);
-        (metadata as any)._resumenFiltrado = result.hbls.map(h => ({
-            ...h,
-            hbls: 1,
-            paradas: h.parada,
-            esHBL: true
-        }));
+        (metadata as any)._resumenFiltrado = agruparHBLsPorProvincia(result.hbls);
       } else {
         setParadasBuscadas(null);
         (metadata as any)._resumenFiltrado = null;
@@ -148,6 +182,14 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 
   // Envuelve la función actual para poder llamarla desde el temporizador sin depender de ella
   const aplicarFiltrosDiferido = useEffectEvent(() => { void aplicarFiltros(); });
+
+  // Al volver de una provincia recuperamos su búsqueda desde la URL (una sola vez, al montar).
+  // Se lanza fuera del render para no encadenar el setState de aplicarFiltros en el efecto.
+  useEffect(() => {
+    if (!busquedaInicial && !estadoInicial) return;
+    const id = setTimeout(() => aplicarFiltrosDiferido(), 0);
+    return () => clearTimeout(id);
+  }, [busquedaInicial, estadoInicial]);
 
   // Estado y ubicación se aplican solos, con un pequeño retardo, al cambiar
   useEffect(() => {
@@ -184,8 +226,6 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     }
   };
 
-  const datosFiltrados = (metadata as any)._resumenFiltrado;
-  const sonHBLs = haBuscado && datosFiltrados && datosFiltrados.length > 0 && datosFiltrados[0]?.esHBL;
   const provinciasAMostrar = (metadata as any)._resumenFiltrado || metadata?.resumen || [];
   const totalHBLs = haBuscado ? provinciasAMostrar.reduce((s: number, p: any) => s + (p.hbls || 0), 0) : (metadata?.resumen || []).reduce((s: number, p: any) => s + (p.hbls || 0), 0);
   const totalParadas = provinciasAMostrar.reduce((s: number, p: any) => s + (p.paradas || 0), 0);
@@ -270,7 +310,7 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
               {provinciasAMostrar.map((p: ManifiestoResumen) => (
                 <Link
                   key={p.provincia}
-                  href={`/provincias?nombre=${encodeURIComponent(p.provincia)}`}
+                  href={`/provincias?nombre=${encodeURIComponent(p.provincia)}${haBuscado && busqueda ? `&q=${encodeURIComponent(busqueda)}` : ""}${haBuscado && estado ? `&estado=${encodeURIComponent(estado)}` : ""}`}
                   className="border border-slate-200 rounded-lg p-4 text-left hover:border-primary/40 hover:shadow-md hover:bg-primary/5 transition-all group block"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -295,13 +335,13 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
 // ============================================================
 // VISTA 2: DETALLE
 // ============================================================
-function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: string, manifiestoId: number, metadata: any }) {
+function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial = "", estadoInicial = "" }: { provincia: string, manifiestoId: number, metadata: any, busquedaInicial?: string, estadoInicial?: string }) {
   const [paradas, setParadas] = useState<ParadasResponse | null>(null);
   const [loadingParadas, setLoadingParadas] = useState(true);
   const [tabActivo, setTabActivo] = useState<"paradas" | "dashboard">("paradas");
   const [error, setError] = useState<string | null>(null);
-  const [busqueda, setBusqueda] = useState("");
-  const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [busqueda, setBusqueda] = useState(busquedaInicial);
+  const [estadoFiltro, setEstadoFiltro] = useState(estadoInicial);
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
   const [totalSinFiltro, setTotalSinFiltro] = useState(0);
@@ -325,7 +365,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     setLoadingParadas(true);
     setError(null);
     try {
-      const result = await obtenerProvinciaPorId(manifiestoId, provincia);
+      const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
       setParadas(result);
       setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
@@ -398,6 +438,13 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     }
   };
 
+  // Al volver a las tarjetas conservamos la búsqueda que nos trajo hasta aquí
+  const parametrosVuelta = new URLSearchParams();
+  if (busqueda) parametrosVuelta.set("q", busqueda);
+  if (estadoFiltro) parametrosVuelta.set("estado", estadoFiltro);
+  const queryVuelta = parametrosVuelta.toString();
+  const volverHref = queryVuelta ? `/provincias?${queryVuelta}` : "/provincias";
+
   if (loadingParadas) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
@@ -427,7 +474,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <Link href="/provincias" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary text-sm transition-colors">
+        <Link href={volverHref} className="inline-flex items-center gap-2 text-slate-600 hover:text-primary text-sm transition-colors">
           <ChevronLeft className="w-4 h-4" /> Volver a provincias
         </Link>
 

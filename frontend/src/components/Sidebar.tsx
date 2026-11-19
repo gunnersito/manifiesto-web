@@ -73,8 +73,6 @@ const GRUPOS: GrupoMenu[] = [
   },
 ];
 
-const ITEMS = GRUPOS.flatMap((grupo) => grupo.items);
-
 export default function Sidebar() {
   // `collapsed` solo afecta a escritorio: en móvil el menú es un drawer.
   const [collapsed, setCollapsed] = useState(false);
@@ -108,7 +106,9 @@ export default function Sidebar() {
   const esActiva = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  const itemActivo = ITEMS.find((item) => esActiva(item.href));
+  const itemActivo = GRUPOS.flatMap((grupo) => grupo.items).find((item) =>
+    esActiva(item.href)
+  );
 
   // Los invitados no ven "Subir" ni "Configuración".
   const puedeVer = (href: string) =>

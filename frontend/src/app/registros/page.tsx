@@ -33,8 +33,8 @@ import {
 } from "@/components/ui/select";
 
 const ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
-const POR_PAGINA_DEFECTO = 15;
 const OPCIONES_POR_PAGINA = [15, 25, 50, 100];
+const POR_PAGINA_DEFECTO = OPCIONES_POR_PAGINA[0];
 
 type ChipFiltro = {
   clave: "manifiesto" | "q" | "estado" | "ubicacion";

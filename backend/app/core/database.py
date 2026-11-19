@@ -3,10 +3,64 @@ Manejo de la base de datos PostgreSQL para Supabase.
 """
 import json
 import os
+import re
+import unicodedata
 import bcrypt
 import psycopg2
 from psycopg2.extras import execute_batch
 from datetime import datetime
+
+
+# ============================================================
+# BÚSQUEDA DE TEXTO
+# ============================================================
+_METACARACTERES_REGEX = re.compile(r"([\\^$.|?*+()\[\]{}])")
+
+
+def _normalizar_busqueda(texto: str) -> str:
+    """Pasa el texto a minúsculas y le quita los acentos."""
+    texto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in texto if not unicodedata.combining(c))
+
+
+def _escapar_regex(texto: str) -> str:
+    """Escapa los metacaracteres para que el texto no se interprete como regex."""
+    return _METACARACTERES_REGEX.sub(r"\\\1", texto)
+
+
+def _escapar_like(texto: str) -> str:
+    """Escapa los comodines de LIKE para buscar el texto tal cual."""
+    return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _texto_normalizado(columna: str) -> str:
+    """Expresión SQL de la columna en minúsculas y sin acentos."""
+    return f"translate(lower(coalesce({columna}, '')), 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun')"
+
+
+def _condicion_busqueda(busqueda: str) -> tuple[str, list]:
+    """
+    Condición SQL de la búsqueda libre: el HBL se busca por contención y el
+    remitente/destinatario por inicio de palabra, sin acentos, para que "raul"
+    encuentre "Raúl" pero no "Braulio".
+    """
+    texto = busqueda.strip()
+    tokens = [t for t in _normalizar_busqueda(texto).split() if t]
+    patron_hbl = f"%{_escapar_like(texto)}%"
+
+    clausulas = ["hbl ILIKE %s ESCAPE '\\'"]
+    valores = [patron_hbl]
+
+    if tokens:
+        nombres = (
+            f"({_texto_normalizado('remitente')} || ' ' || "
+            f"{_texto_normalizado('destinatario')})"
+        )
+        por_nombre = [f"{nombres} ~ ('\\m' || %s)" for _ in tokens]
+        clausulas.append("(" + " AND ".join(por_nombre) + ")")
+        valores.extend(_escapar_regex(t) for t in tokens)
+
+    return "(" + " OR ".join(clausulas) + ")", valores
 
 def get_db_connection():
     """Retorna una nueva conexión a PostgreSQL (Supabase)."""
@@ -279,9 +333,9 @@ def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 1
         where.append("manifiesto_id = %s")
         params.append(manifiesto_id)
     if busqueda:
-        where.append("(hbl ILIKE %s OR remitente ILIKE %s OR destinatario ILIKE %s)")
-        b = f"%{busqueda}%"
-        params.extend([b, b, b])
+        condicion, valores = _condicion_busqueda(busqueda)
+        where.append(condicion)
+        params.extend(valores)
     if estado:
         where.append("estado = %s")
         params.append(estado)

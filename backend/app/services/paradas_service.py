@@ -222,18 +222,32 @@ def filtrar_hbls(df, busqueda: str = "", estado: str = "", ubicacion: str = ""):
     COL_REMITENTE = "Nombre y Apellidos del REMITENTE:"
     COL_DESTINATARIO = "Nombre y Apellidos del DESTINATARIO:"
 
-    # Filtro de búsqueda libre
-    if busqueda:
-        b = busqueda.lower()
-        cols_buscar = [COL_HBL]
-        for c in [COL_REMITENTE, COL_DESTINATARIO]:
-            if c in df.columns:
-                cols_buscar.append(c)
+    # Filtro de búsqueda libre: el HBL por contención y los nombres por inicio de
+    # palabra sin acentos, igual que el listado en SQL. Así "raul" encuentra
+    # "Raúl" pero no "Braulio".
+    if busqueda and busqueda.strip():
+        b = busqueda.strip()
+        # re.escape: el texto se busca tal cual, sin interpretarse como regex
+        mask_hbl = df[COL_HBL].astype(str).str.lower().str.contains(
+            b.lower(), regex=False, na=False
+        )
 
-        mask = False
-        for c in cols_buscar:
-            mask = mask | df[c].astype(str).str.lower().str.contains(b, na=False)
-        df = df[mask]
+        cols_nombres = [c for c in (COL_REMITENTE, COL_DESTINATARIO) if c in df.columns]
+        mask_nombres = False
+        if cols_nombres:
+            texto = df[cols_nombres[0]].map(normalizar_texto)
+            for c in cols_nombres[1:]:
+                texto = texto + " " + df[c].map(normalizar_texto)
+
+            tokens = [t for t in normalizar_texto(b).split() if t]
+            if tokens:
+                mask_nombres = pd.Series(True, index=df.index)
+                for t in tokens:
+                    mask_nombres &= texto.str.contains(
+                        r"\b" + re.escape(t), regex=True, na=False
+                    )
+
+        df = df[mask_hbl | mask_nombres]
 
     # Filtro de estado
     if estado and estado != "Todos":

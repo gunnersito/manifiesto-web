@@ -87,7 +87,7 @@ export default function ManifiestosPage() {
           {isAdmin && (
             <Link
               href="/"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
             >
               <Upload className="w-4 h-4" />
               Subir nuevo
@@ -108,7 +108,7 @@ export default function ManifiestosPage() {
             {isAdmin && (
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
               >
                 Ir a Subir
               </Link>
@@ -124,20 +124,20 @@ export default function ManifiestosPage() {
                   onClick={() => handleSeleccionar(m.id)}
                   className={`bg-white rounded-xl border-2 p-5 cursor-pointer transition-all hover:shadow-md ${
                     esActivo
-                      ? "border-blue-500 ring-2 ring-blue-100"
-                      : "border-slate-200 hover:border-blue-300"
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-slate-200 hover:border-primary/40"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileSpreadsheet
                         className={`w-5 h-5 flex-shrink-0 ${
-                          esActivo ? "text-blue-600" : "text-slate-400"
+                          esActivo ? "text-primary" : "text-slate-400"
                         }`}
                       />
                       <h3
                         className={`text-sm font-semibold truncate ${
-                          esActivo ? "text-blue-700" : "text-slate-900"
+                          esActivo ? "text-primary" : "text-slate-900"
                         }`}
                         title={m.nombre_archivo}
                       >
@@ -198,7 +198,7 @@ export default function ManifiestosPage() {
                   </div>
 
                   {esActivo && (
-                    <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                    <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-primary">
                       <CheckCircle className="w-3.5 h-3.5" />
                       Manifiesto activo
                     </div>

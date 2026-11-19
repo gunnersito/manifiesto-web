@@ -22,7 +22,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
-import type { ManifiestoResumen } from "@/lib/api";
+import { ComparadorManifiestos } from "@/components/ComparadorManifiestos";
 
 export default function DashboardPage() {
   const { metadata } = useManifiesto();
@@ -31,7 +31,7 @@ export default function DashboardPage() {
   if (!metadata) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
             <BarChart3 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">
@@ -42,12 +42,13 @@ export default function DashboardPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
             >
               <Upload className="w-5 h-5" />
               Ir a Subir
             </Link>
           </div>
+          <ComparadorManifiestos />
         </div>
       </main>
     );
@@ -82,7 +83,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+            <div className="w-2 h-2 rounded-full bg-primary"></div>
             <span>{metadata.nombre_archivo}</span>
           </div>
         </div>
@@ -236,6 +237,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </details>
+
+        {/* Comparar manifiestos */}
+        <ComparadorManifiestos />
       </div>
     </main>
   );

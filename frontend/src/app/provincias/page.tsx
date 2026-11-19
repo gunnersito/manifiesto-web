@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
+import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import {
   CheckCircle,
@@ -579,6 +580,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
   const [hbls, setHbls] = useState<HBLRegistro[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [marcandoTodas, setMarcandoTodas] = useState(false);
+  const [confirmarTodas, setConfirmarTodas] = useState(false);
 
   const toggleExpand = async () => {
     if (expanded) { setExpanded(false); return; }
@@ -599,7 +601,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
 
   const marcarTodasEntregadas = async () => {
     if (!hbls || hbls.length === 0) return;
-    if (!confirm(`¿Marcar los ${hbls.length} paquete(s) de esta parada como Entregada?`)) return;
+    setConfirmarTodas(false);
     setMarcandoTodas(true);
     try {
       await actualizarEstadosMasivos(hbls.map((h) => h.hbl), "Entregada");
@@ -635,7 +637,7 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
           {!loading && hbls && (
             <>
               <div className="mb-3 flex justify-end">
-                <button onClick={marcarTodasEntregadas} disabled={marcandoTodas} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
+                <button onClick={() => setConfirmarTodas(true)} disabled={marcandoTodas} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
                   {marcandoTodas ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Marcando...</> : <><CheckCircle className="w-3.5 h-3.5" /> Marcar toda la parada como Entregada</>}
                 </button>
               </div>
@@ -672,6 +674,30 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
           )}
         </div>
       )}
+
+      <Modal
+        isOpen={confirmarTodas}
+        onClose={() => setConfirmarTodas(false)}
+        title="Marcar parada como Entregada"
+      >
+        <p className="text-slate-600 mb-6">
+          ¿Marcar los <b>{hbls?.length ?? 0}</b> paquete(s) de esta parada como <b>Entregada</b>?
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setConfirmarTodas(false)}
+            className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={marcarTodasEntregadas}
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors"
+          >
+            Marcar entregada
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

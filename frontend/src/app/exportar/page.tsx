@@ -94,7 +94,7 @@ export default function ExportarPage() {
                           await seleccionarManifiesto(m.id);
                           setMenuAbierto(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors truncate ${esActivo ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors truncate ${esActivo ? "bg-primary/5 text-primary font-medium" : "text-slate-700"}`}
                       >
                         {m.nombre_archivo} ({m.total_filas} HBLs)
                       </button>
@@ -106,6 +106,25 @@ export default function ExportarPage() {
           </div>
         </div>
 
+        {!metadata && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+            <Download className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+            <h2 className="text-xl font-bold text-slate-900 mb-2">
+              No hay manifiesto cargado
+            </h2>
+            <p className="text-slate-600 mb-6">
+              Sube un manifiesto Excel para exportar sus datos.
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+            >
+              <Upload className="w-5 h-5" />
+              Ir a Subir
+            </Link>
+          </div>
+        )}
+
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -113,120 +132,124 @@ export default function ExportarPage() {
           </div>
         )}
 
-        {/* Bloque 1: Todas */}
-        {metadata && manifiestoId && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FileSpreadsheet className="w-6 h-6 text-blue-600" />
+        {metadata && (
+          <>
+            {/* Bloque 1: Todas */}
+            {manifiestoId && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileSpreadsheet className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                      Exportar todas las provincias
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Genera un Excel con una hoja por provincia ({metadata.total_provincias} en total), más una hoja de resumen general.
+                    </p>
+                    <button
+                      onClick={() => handleExportar("todas", () => exportarTodasProvinciasPorId(manifiestoId!, metadata?.nombre_archivo || `manifiesto_${manifiestoId}`))}
+                      disabled={exportando !== null}
+                      className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-slate-300 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+                    >
+                      {exportando === "todas" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generando... (esto puede tardar)
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4" />
+                          Descargar Excel completo
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold text-slate-900 mb-1">
-                  Exportar todas las provincias
-                </h2>
-                <p className="text-sm text-slate-600 mb-4">
-                  Genera un Excel con una hoja por provincia ({metadata.total_provincias} en total), más una hoja de resumen general.
-                </p>
-                <button
-                  onClick={() => handleExportar("todas", () => exportarTodasProvinciasPorId(manifiestoId!, metadata?.nombre_archivo || `manifiesto_${manifiestoId}`))}
-                  disabled={exportando !== null}
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
-                >
-                  {exportando === "todas" ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Generando... (esto puede tardar)
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      Descargar Excel completo
-                    </>
-                  )}
-                </button>
+            )}
+
+            {/* Bloque 2: Por provincia */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                    Exportar por provincia
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    Selecciona una provincia y descarga su manifiesto, hoja de ruta o por municipios.
+                  </p>
+                </div>
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Provincia
+                </label>
+                <AutocompleteUbicacion
+                  values={provinciaSel ? [provinciaSel] : []}
+                  onChange={(vals) => setProvinciaSel(vals[0] || "")}
+                  opciones={provincias}
+                  provincias={provincias}
+                  placeholder="— Selecciona una provincia —"
+                />
+              </div>
+
+              {provinciaSel && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-200">
+                  <button
+                    onClick={() => handleExportar("manifiesto", () => exportarProvinciaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
+                    disabled={exportando !== null}
+                    className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-colors text-left disabled:opacity-50"
+                  >
+                    <FileSpreadsheet className="w-5 h-5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 text-sm">Manifiesto</div>
+                      <div className="text-xs text-slate-500">Excel completo</div>
+                    </div>
+                    {exportando === "manifiesto" && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                  </button>
+
+                  <button
+                    onClick={() => handleExportar("ruta", () => exportarHojaRutaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
+                    disabled={exportando !== null}
+                    className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-green-400 hover:bg-green-50/30 transition-colors text-left disabled:opacity-50"
+                  >
+                    <Truck className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 text-sm">Hoja de ruta</div>
+                      <div className="text-xs text-slate-500">Para el repartidor</div>
+                    </div>
+                    {exportando === "ruta" && <Loader2 className="w-4 h-4 animate-spin text-green-600" />}
+                  </button>
+
+                  <button
+                    onClick={() => handleExportar("municipios", () => exportarPorMunicipiosPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
+                    disabled={exportando !== null}
+                    className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-purple-400 hover:bg-purple-50/30 transition-colors text-left disabled:opacity-50"
+                  >
+                    <MapPin className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 text-sm">Por municipios</div>
+                      <div className="text-xs text-slate-500">Una hoja por municipio</div>
+                    </div>
+                    {exportando === "municipios" && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
+
+            {/* Tip */}
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm text-slate-700 flex items-start gap-2">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
+              <span><b>Tip:</b> Los Excel exportados incluyen los estados actuales (Pendiente, Despachada, Devuelto Almacén, Entregada) que hayas marcado.</span>
+            </div>
+          </>
         )}
-
-        {/* Bloque 2: Por provincia */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-slate-900 mb-1">
-                Exportar por provincia
-              </h2>
-              <p className="text-sm text-slate-600">
-                Selecciona una provincia y descarga su manifiesto, hoja de ruta o por municipios.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Provincia
-            </label>
-            <AutocompleteUbicacion
-              values={provinciaSel ? [provinciaSel] : []}
-              onChange={(vals) => setProvinciaSel(vals[0] || "")}
-              opciones={provincias}
-              provincias={provincias}
-              placeholder="— Selecciona una provincia —"
-            />
-          </div>
-
-          {provinciaSel && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-200">
-              <button
-                onClick={() => handleExportar("manifiesto", () => exportarProvinciaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
-                disabled={exportando !== null}
-                className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-blue-400 hover:bg-blue-50/30 transition-colors text-left disabled:opacity-50"
-              >
-                <FileSpreadsheet className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 text-sm">Manifiesto</div>
-                  <div className="text-xs text-slate-500">Excel completo</div>
-                </div>
-                {exportando === "manifiesto" && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
-              </button>
-
-              <button
-                onClick={() => handleExportar("ruta", () => exportarHojaRutaPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
-                disabled={exportando !== null}
-                className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-green-400 hover:bg-green-50/30 transition-colors text-left disabled:opacity-50"
-              >
-                <Truck className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 text-sm">Hoja de ruta</div>
-                  <div className="text-xs text-slate-500">Para el repartidor</div>
-                </div>
-                {exportando === "ruta" && <Loader2 className="w-4 h-4 animate-spin text-green-600" />}
-              </button>
-
-              <button
-                onClick={() => handleExportar("municipios", () => exportarPorMunicipiosPorId(manifiestoId!, provinciaSel, metadata?.nombre_archivo || ""))}
-                disabled={exportando !== null}
-                className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-purple-400 hover:bg-purple-50/30 transition-colors text-left disabled:opacity-50"
-              >
-                <MapPin className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 text-sm">Por municipios</div>
-                  <div className="text-xs text-slate-500">Una hoja por municipio</div>
-                </div>
-                {exportando === "municipios" && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Tip */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 flex items-start gap-2">
-          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <span><b>Tip:</b> Los Excel exportados incluyen los estados actuales (Pendiente, Despachada, Devuelto Almacén, Entregada) que hayas marcado.</span>
-        </div>
       </div>
       <LoadingModal
         isOpen={exportando !== null}

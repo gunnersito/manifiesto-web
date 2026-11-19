@@ -334,7 +334,7 @@ function RegistrosContent() {
               <select
                 value={manifiestoFiltro}
                 onChange={(e) => cambiarManifiesto(e.target.value)}
-                className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="activo">Manifiesto activo</option>
                 <option value="todos">Todos los manifiestos</option>
@@ -455,7 +455,7 @@ function RegistrosContent() {
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
               <p className="text-sm text-slate-600">Cargando registros...</p>
             </div>
           ) : !datos || datos.hbls.length === 0 ? (

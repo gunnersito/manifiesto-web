@@ -126,7 +126,7 @@ export default function AutocompleteUbicacion({
                     <div
                       className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
                         isSelected
-                          ? "bg-blue-600 border-blue-600"
+                          ? "bg-primary border-primary"
                           : "border-slate-300 bg-white"
                       }`}
                     >
@@ -138,7 +138,7 @@ export default function AutocompleteUbicacion({
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           {esProvincia ? (
-                            <Building2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
                           ) : (
                             <Home className="w-4 h-4 text-slate-400 flex-shrink-0" />
                           )}

@@ -119,7 +119,7 @@ export default function AutocompleteUbicacion({
                     type="button"
                     onClick={() => toggleSeleccion(opcion)}
                     className={`w-full text-left p-2 rounded-lg flex items-center gap-3 transition-colors ${
-                      isSelected ? "bg-blue-50" : "hover:bg-slate-50"
+                      isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                     }`}
                   >
                     {/* Checkbox visual */}

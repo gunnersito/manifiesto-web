@@ -1,20 +1,11 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect, useEffectEvent, useRef } from "react";
+import { useManifiesto } from "@/contexts/ManifiestoContext";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { buscarParadasPorMunicipio } from "@/lib/api";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
+import FiltrosBusqueda from "@/components/FiltrosBusqueda";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import {
@@ -32,7 +23,6 @@ import {
   Loader2,
   Truck,
 } from "lucide-react";
-import { useManifiesto } from "@/contexts/ManifiestoContext";
 import {
   exportarTodasProvinciasPorId,
   obtenerHBLsManifiesto,
@@ -67,6 +57,7 @@ function ProvinciasContent() {
   const searchParams = useSearchParams();
   const provinciaSeleccionada = searchParams.get("nombre");
   const { metadata, manifiestoId } = useManifiesto();
+
 
   if (!metadata || !manifiestoId) {
     return (
@@ -109,12 +100,24 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
   const [ubicacion, setUbicacion] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { manifiestos, seleccionarManifiesto } = useManifiesto();
   const [haBuscado, setHaBuscado] = useState(false);
   const [paradasBuscadas, setParadasBuscadas] = useState<any[] | null>(null);
 
-    const aplicarFiltros = async () => {
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filtrosAplicados = useRef<[string, string]>(["", ""]);
+  const primerRender = useRef(true);
+
+  const cancelarDebounce = () => {
+    if (temporizador.current) {
+      clearTimeout(temporizador.current);
+      temporizador.current = null;
+    }
+  };
+
+  const aplicarFiltros = async () => {
     if (!manifiestoId) return;
+    cancelarDebounce();
+    filtrosAplicados.current = [estado, ubicacion];
     setCargando(true);
     setHaBuscado(true);
     setError(null);
@@ -143,7 +146,34 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
     }
   };
 
+  // Envuelve la función actual para poder llamarla desde el temporizador sin depender de ella
+  const aplicarFiltrosDiferido = useEffectEvent(() => { void aplicarFiltros(); });
+
+  // Estado y ubicación se aplican solos, con un pequeño retardo, al cambiar
+  useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      filtrosAplicados.current = [estado, ubicacion];
+      return;
+    }
+    // Si ya están aplicados (Buscar o Limpiar), no se repite la petición
+    if (filtrosAplicados.current[0] === estado && filtrosAplicados.current[1] === ubicacion) return;
+    temporizador.current = setTimeout(() => {
+      temporizador.current = null;
+      filtrosAplicados.current = [estado, ubicacion];
+      aplicarFiltrosDiferido();
+    }, 400);
+    return () => {
+      if (temporizador.current) {
+        clearTimeout(temporizador.current);
+        temporizador.current = null;
+      }
+    };
+  }, [estado, ubicacion]);
+
   const limpiarFiltros = () => {
+    cancelarDebounce();
+    filtrosAplicados.current = ["", ""];
     setBusqueda("");
     setEstado("");
     setUbicacion("");
@@ -196,90 +226,24 @@ function ResumenProvincias({ manifiestoId, metadata }: { manifiestoId: number, m
           </div>
         </div>
 
-        <details className="group bg-white rounded-lg border border-slate-200">
-          <summary className="list-none cursor-pointer p-4 flex items-center justify-between gap-3 select-none flex-wrap">
-            <div className="flex items-center gap-2">
-              <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
-              <span className="font-semibold text-slate-900">Filtros de Búsqueda</span>
-              {(busqueda || estado || ubicacion) && (
-                <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">activos</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={(e) => { e.preventDefault(); aplicarFiltros(); }} disabled={cargando}>
-                {cargando ? "Buscando..." : "Buscar"}
-              </Button>
-              <Button variant="outline" onClick={(e) => { e.preventDefault(); limpiarFiltros(); }} disabled={cargando}>
-                Limpiar
-              </Button>
-            </div>
-          </summary>
-
-          <div className="p-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-              
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto</label>
-                <select
-                  value={manifiestoId || ""}
-                  onChange={async (e) => {
-                    const nuevoId = Number(e.target.value);
-                    if (nuevoId) await seleccionarManifiesto(nuevoId);
-                  }}
-                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  {manifiestos.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre_archivo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Filtro</label>
-                <Input
-                  placeholder="HBL, remitente..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="!h-[42px] bg-white"
-                />
-              </div>
-
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ubicación</label>
-                <AutocompleteUbicacion
-                  values={ubicacion ? [ubicacion] : []}
-                  onChange={(vals) => setUbicacion(vals[0] || "")}
-                  provincias={Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia)))}
-                  opciones={
-                    [
-                      ...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))),
-                      ...Array.from(new Set((metadata?.resumen || []).flatMap((p: any) => p.municipios || [])))
-                    ].map(String).sort(ordenarUbicaciones)
-                  }
-                  placeholder="todas"
-                />
-              </div>
-
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
-                <Select value={estado || "todos"} onValueChange={(v) => setEstado(!v || v === "todos" ? "" : v)}>
-                  <SelectTrigger className="w-full !h-[42px] bg-white">
-                    <SelectValue placeholder="todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">todos</SelectItem>
-                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                    <SelectItem value="Despachada">Despachada</SelectItem>
-                    <SelectItem value="Devuelto Almacén">Devuelto Almacén</SelectItem>
-                    <SelectItem value="Entregada">Entregada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </details>
+        <FiltrosBusqueda
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+          estado={estado}
+          onEstado={setEstado}
+          ubicacion={ubicacion}
+          onUbicacion={setUbicacion}
+          opcionesUbicacion={[
+            ...Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia))),
+            ...Array.from(new Set((metadata?.resumen || []).flatMap((p: any) => p.municipios || []))),
+          ].map(String).sort(ordenarUbicaciones)}
+          provincias={Array.from(new Set((metadata?.resumen || []).map((p: any) => p.provincia)))}
+          placeholderFiltro="HBL, remitente..."
+          placeholderUbicacion="todas las ubicaciones"
+          onBuscar={() => { void aplicarFiltros(); }}
+          onLimpiar={limpiarFiltros}
+          cargando={cargando}
+        />
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Resumen por provincia</h3>
@@ -341,8 +305,17 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
   const [totalSinFiltro, setTotalSinFiltro] = useState(0);
-  
-  const { manifiestos, seleccionarManifiesto } = useManifiesto();
+
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filtrosAplicados = useRef<[string, string]>(["", ""]);
+  const primerRender = useRef(true);
+
+  const cancelarDebounce = () => {
+    if (temporizador.current) {
+      clearTimeout(temporizador.current);
+      temporizador.current = null;
+    }
+  };
 
   useEffect(() => {
     cargarParadas();
@@ -369,6 +342,8 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
   };
 
   const aplicarFiltros = async () => {
+    cancelarDebounce();
+    filtrosAplicados.current = [estadoFiltro, ubicacionFiltro];
     setCargandoFiltro(true);
     setError(null);
     try {
@@ -382,7 +357,34 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
     }
   };
 
+  // Envuelve la función actual para poder llamarla desde el temporizador sin depender de ella
+  const aplicarFiltrosDiferido = useEffectEvent(() => { void aplicarFiltros(); });
+
+  // Estado y ubicación se aplican solos, con un pequeño retardo, al cambiar
+  useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      filtrosAplicados.current = [estadoFiltro, ubicacionFiltro];
+      return;
+    }
+    // Si ya están aplicados (Buscar o Limpiar), no se repite la petición
+    if (filtrosAplicados.current[0] === estadoFiltro && filtrosAplicados.current[1] === ubicacionFiltro) return;
+    temporizador.current = setTimeout(() => {
+      temporizador.current = null;
+      filtrosAplicados.current = [estadoFiltro, ubicacionFiltro];
+      aplicarFiltrosDiferido();
+    }, 400);
+    return () => {
+      if (temporizador.current) {
+        clearTimeout(temporizador.current);
+        temporizador.current = null;
+      }
+    };
+  }, [estadoFiltro, ubicacionFiltro]);
+
   const limpiarFiltros = async () => {
+    cancelarDebounce();
+    filtrosAplicados.current = ["", ""];
     setBusqueda(""); setEstadoFiltro(""); setUbicacionFiltro("");
     setCargandoFiltro(true);
     try {
@@ -463,73 +465,24 @@ function DetalleProvincia({ provincia, manifiestoId, metadata }: { provincia: st
         </div>
 
         {/* Filtros */}
-        <details className="group bg-white rounded-lg border border-slate-200">
-          <summary className="list-none cursor-pointer p-4 flex items-center justify-between gap-3 select-none flex-wrap">
-            <div className="flex items-center gap-2">
-              <ChevronDown className="w-5 h-5 text-slate-700 transition-transform group-open:rotate-180" />
-              <span className="font-semibold text-slate-900">Filtros de Búsqueda</span>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={(e) => { e.preventDefault(); aplicarFiltros(); }} disabled={cargandoFiltro}>{cargandoFiltro ? "Buscando..." : "Buscar"}</Button>
-              <Button variant="outline" onClick={(e) => { e.preventDefault(); limpiarFiltros(); }} disabled={cargandoFiltro}>Limpiar</Button>
-            </div>
-          </summary>
-          <div className="p-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              
-              <div className="w-full min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Manifiesto</label>
-                <select
-                  value={manifiestoId || ""}
-                  onChange={async (e) => {
-                    const nuevoId = Number(e.target.value);
-                    if (nuevoId) await seleccionarManifiesto(nuevoId);
-                  }}
-                  className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  {manifiestos.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre_archivo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Filtro</Label>
-                <Input placeholder="HBL, cliente..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="!h-[42px]" />
-              </div>
-              <div className="space-y-2">
-                <Label>Ubicación</Label>
-                <AutocompleteUbicacion
-                  values={ubicacionFiltro ? [ubicacionFiltro] : []}
-                  onChange={(vals) => setUbicacionFiltro(vals[0] || "")}
-                  provincias={[paradas.provincia]}
-                  opciones={
-                    [paradas.provincia, ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio)))]
-                      .sort(ordenarUbicaciones)
-                  }
-                  placeholder="todas las ubicaciones"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={estadoFiltro || "todos"} onValueChange={(v) => setEstadoFiltro(!v || v === "todos" ? "" : v)}>
-                  <SelectTrigger className="w-full !h-[42px] bg-white">
-                    <SelectValue placeholder="todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">todos</SelectItem>
-                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                    <SelectItem value="Despachada">Despachada</SelectItem>
-                    <SelectItem value="Devuelto Almacén">Devuelto Almacén</SelectItem>
-                    <SelectItem value="Entregada">Entregada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </details>
+        <FiltrosBusqueda
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+          estado={estadoFiltro}
+          onEstado={setEstadoFiltro}
+          ubicacion={ubicacionFiltro}
+          onUbicacion={setUbicacionFiltro}
+          opcionesUbicacion={[
+            paradas.provincia,
+            ...Array.from(new Set(paradas.paradas.map((p) => p.Municipio))),
+          ].sort(ordenarUbicaciones)}
+          provincias={[paradas.provincia]}
+          placeholderFiltro="HBL, cliente..."
+          placeholderUbicacion="todas las ubicaciones"
+          onBuscar={() => { void aplicarFiltros(); }}
+          onLimpiar={() => { void limpiarFiltros(); }}
+          cargando={cargandoFiltro}
+        />
 
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
           <button onClick={() => setTabActivo("paradas")} className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tabActivo === "paradas" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>

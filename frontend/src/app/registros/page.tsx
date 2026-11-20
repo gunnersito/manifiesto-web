@@ -24,13 +24,6 @@ import { obtenerTodosLosHBLs, actualizarEstado, type HBLRegistro, type HBLsPagin
 } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const ESTADOS = ["Pendiente", "Despachada", "Devuelto Almacén", "Entregada"];
 const OPCIONES_POR_PAGINA = [15, 25, 50, 100];
@@ -325,10 +318,10 @@ function RegistrosContent() {
         )}
 
         {/* Filtros: siempre visibles, con chips de lo aplicado */}
-        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="w-full min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+            <div className="w-full min-w-0 lg:w-56">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">
                 Manifiesto
               </label>
               <select
@@ -346,8 +339,8 @@ function RegistrosContent() {
               </select>
             </div>
 
-            <div className="w-full min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+            <div className="w-full min-w-0 lg:w-80">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">
                 Filtro
               </label>
               <div className="flex gap-2">
@@ -371,8 +364,8 @@ function RegistrosContent() {
               </div>
             </div>
 
-            <div className="w-full min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+            <div className="w-full min-w-0 lg:w-64">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">
                 Provincia / Municipio
               </label>
               <AutocompleteUbicacion
@@ -384,28 +377,24 @@ function RegistrosContent() {
               />
             </div>
 
-            <div className="w-full min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+            <div className="w-full min-w-0 lg:w-44">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">
                 Estado
               </label>
-              <Select
+              <select
                 value={estadoFiltro || "todos"}
-                onValueChange={(value) =>
-                  cambiarEstado(!value || value === "todos" ? "" : value)
+                onChange={(e) =>
+                  cambiarEstado(!e.target.value || e.target.value === "todos" ? "" : e.target.value)
                 }
+                className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <SelectTrigger className="w-full !h-[42px] bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {ESTADOS.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="todos">Todos</option>
+                {ESTADOS.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

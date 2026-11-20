@@ -319,7 +319,7 @@ function RegistrosContent() {
 
         {/* Filtros: siempre visibles, con chips de lo aplicado */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="w-full min-w-0 lg:w-56">
               <label className="mb-1.5 block text-xs font-medium text-slate-600">
                 Manifiesto

@@ -5,13 +5,6 @@ import { ChevronDown, Loader2, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import AutocompleteUbicacion from "@/components/AutocompleteUbicacion";
 
 interface Props {
@@ -80,7 +73,7 @@ export default function FiltrosBusqueda({
 
       {abierto && (
         <div id="panel-filtros" className="px-5 sm:px-6 pb-5 space-y-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="w-full min-w-0 space-y-1.5 lg:w-80">
               <Label htmlFor="filtro-texto" className="text-xs font-medium text-slate-600">
                 Filtro
@@ -113,22 +106,18 @@ export default function FiltrosBusqueda({
 
             <div className="w-full min-w-0 space-y-1.5 lg:w-44">
               <Label className="text-xs font-medium text-slate-600">Estado</Label>
-              <Select
+              <select
                 value={estado || "todos"}
-                onValueChange={(v) => onEstado(!v || v === "todos" ? "" : v)}
+                onChange={(e) => onEstado(!e.target.value || e.target.value === "todos" ? "" : e.target.value)}
+                className="w-full px-3 h-[42px] border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <SelectTrigger className="w-full !h-[42px] bg-white">
-                  <SelectValue placeholder="todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">todos</SelectItem>
-                  {ESTADOS.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="todos">todos</option>
+                {ESTADOS.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex gap-2 lg:ml-auto">

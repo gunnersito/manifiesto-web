@@ -62,7 +62,7 @@ export default function FiltrosBusqueda({
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
         aria-controls="panel-filtros"
-        className="w-full flex items-center justify-between gap-3 p-5 sm:p-6 text-left"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 sm:px-6 text-left"
       >
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="w-5 h-5 text-slate-500" />
@@ -79,10 +79,10 @@ export default function FiltrosBusqueda({
       </button>
 
       {abierto && (
-        <div id="panel-filtros" className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            <div className="w-full min-w-0 space-y-2">
-              <Label htmlFor="filtro-texto" className="text-slate-700">
+        <div id="panel-filtros" className="px-5 sm:px-6 pb-5 space-y-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+            <div className="w-full min-w-0 space-y-1.5 lg:w-80">
+              <Label htmlFor="filtro-texto" className="text-xs font-medium text-slate-600">
                 Filtro
               </Label>
               <Input
@@ -100,8 +100,8 @@ export default function FiltrosBusqueda({
               />
             </div>
 
-            <div className="w-full min-w-0 space-y-2">
-              <Label className="text-slate-700">Ubicación</Label>
+            <div className="w-full min-w-0 space-y-1.5 lg:w-64">
+              <Label className="text-xs font-medium text-slate-600">Ubicación</Label>
               <AutocompleteUbicacion
                 values={ubicacion ? [ubicacion] : []}
                 onChange={(vals) => onUbicacion(vals[0] || "")}
@@ -111,8 +111,8 @@ export default function FiltrosBusqueda({
               />
             </div>
 
-            <div className="w-full min-w-0 space-y-2">
-              <Label className="text-slate-700">Estado</Label>
+            <div className="w-full min-w-0 space-y-1.5 lg:w-44">
+              <Label className="text-xs font-medium text-slate-600">Estado</Label>
               <Select
                 value={estado || "todos"}
                 onValueChange={(v) => onEstado(!v || v === "todos" ? "" : v)}
@@ -129,6 +129,21 @@ export default function FiltrosBusqueda({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex gap-2 lg:ml-auto">
+              <Button variant="outline" onClick={onLimpiar} disabled={cargando}>
+                Limpiar
+              </Button>
+              <Button onClick={onBuscar} disabled={cargando}>
+                {cargando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
+                  </>
+                ) : (
+                  "Buscar"
+                )}
+              </Button>
             </div>
           </div>
 
@@ -154,20 +169,6 @@ export default function FiltrosBusqueda({
             </div>
           )}
 
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={onLimpiar} disabled={cargando}>
-              Limpiar
-            </Button>
-            <Button onClick={onBuscar} disabled={cargando}>
-              {cargando ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
-                </>
-              ) : (
-                "Buscar"
-              )}
-            </Button>
-          </div>
         </div>
       )}
     </section>

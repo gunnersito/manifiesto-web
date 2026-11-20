@@ -240,8 +240,8 @@ function ResumenProvincias({ manifiestoId, metadata, busquedaInicial = "", estad
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-6 h-6 text-green-600" />
               <h2 className="text-xl font-semibold text-slate-900">{metadata.nombre_archivo}</h2>
@@ -258,7 +258,7 @@ function ResumenProvincias({ manifiestoId, metadata, busquedaInicial = "", estad
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex flex-wrap gap-2">
             <Metric label="Total HBLs" value={totalHBLs} />
             <Metric label="Provincias" value={provinciasAMostrar.length} />
             <Metric label="Paradas totales" value={totalParadas} />
@@ -504,7 +504,7 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
             </details>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="flex flex-wrap gap-2">
             <Metric label="HBLs" value={paradas.total_hbls} />
             <Metric label="Paradas" value={paradas.total_paradas} />
             <Metric label="Bultos" value={paradas.paradas.reduce((s, p) => s + p.Bultos, 0)} />
@@ -568,9 +568,9 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
 // ============================================================
 function Metric({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4">
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
-      <div className="text-xs text-slate-600 mt-1">{label}</div>
+    <div className="flex items-baseline gap-2 rounded-lg bg-slate-50 px-3 py-2">
+      <span className="text-xl font-bold leading-none text-slate-900">{value}</span>
+      <span className="text-xs text-slate-600">{label}</span>
     </div>
   );
 }

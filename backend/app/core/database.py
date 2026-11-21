@@ -210,11 +210,46 @@ def obtener_todos_estados():
     conn.close()
     return {row[0]: {"estado": row[1], "usuario": row[2], "fecha_hora": row[3]} for row in rows}
 
-def _guardar_estado_en_cursor(cursor, hbl: str, estado: str, usuario: str) -> None:
+def _estado_actual(cursor, hbl: str) -> str | None:
+    """Estado vigente de un HBL: manda `entregas` y, si no hay fila, `hbls`."""
+    cursor.execute("SELECT estado FROM entregas WHERE hbl = %s", (hbl,))
+    fila = cursor.fetchone()
+    if fila is None:
+        cursor.execute("SELECT estado FROM hbls WHERE hbl = %s LIMIT 1", (hbl,))
+        fila = cursor.fetchone()
+    return fila[0] if fila else None
+
+
+def _estados_actuales(cursor, hbls: list) -> dict:
+    """Estado vigente de varios HBLs, en dos consultas en vez de una por HBL."""
+    cursor.execute("SELECT hbl, estado FROM entregas WHERE hbl = ANY(%s)", (hbls,))
+    estados = dict(cursor.fetchall())
+
+    faltan = [hbl for hbl in hbls if hbl not in estados]
+    if faltan:
+        cursor.execute(
+            "SELECT DISTINCT ON (hbl) hbl, estado FROM hbls WHERE hbl = ANY(%s) ORDER BY hbl",
+            (faltan,),
+        )
+        estados.update(dict(cursor.fetchall()))
+
+    return estados
+
+
+def _guardar_estado_en_cursor(
+    cursor, hbl: str, estado: str, usuario: str, estado_actual: str | None
+) -> bool:
     """
     Escribe un cambio de estado usando un cursor ya abierto: estado actual en
     `entregas`, columna `estado` de `hbls` y una fila nueva en el historial.
+
+    Si el HBL ya estaba en ese estado no se toca nada (ni histórico, ni fecha,
+    ni quién lo cambió): repetir el mismo estado no deja rastro. Devuelve True
+    solo cuando hubo un cambio real.
     """
+    if estado_actual == estado:
+        return False
+
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
@@ -233,14 +268,21 @@ def _guardar_estado_en_cursor(cursor, hbl: str, estado: str, usuario: str) -> No
         VALUES (%s, %s, %s, %s)
     """, (hbl, estado, usuario, ahora))
 
+    return True
 
-def guardar_estado(hbl: str, estado: str, usuario: str = None):
+
+def guardar_estado(hbl: str, estado: str, usuario: str = None) -> bool:
+    """Guarda el estado de un HBL. Devuelve True si el estado cambió."""
     usuario = usuario or "Sistema"
+    hbl = str(hbl)
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            _guardar_estado_en_cursor(cursor, str(hbl), estado, usuario)
+            cambio = _guardar_estado_en_cursor(
+                cursor, hbl, estado, usuario, _estado_actual(cursor, hbl)
+            )
         conn.commit()
+        return cambio
     finally:
         conn.close()
 
@@ -248,19 +290,24 @@ def guardar_estado(hbl: str, estado: str, usuario: str = None):
 def guardar_estados_masivo(hbls: list, estado: str, usuario: str = None) -> int:
     """
     Guarda el mismo estado en varios HBLs con una sola conexión y un solo
-    commit, y deja el histórico de cada uno. Devuelve cuántos se procesaron.
+    commit, dejando histórico solo de los que cambian de verdad. Devuelve
+    cuántos cambiaron.
     """
     if not hbls:
         return 0
 
     usuario = usuario or "Sistema"
+    hbls = [str(hbl) for hbl in hbls]
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            estados = _estados_actuales(cursor, hbls)
+            cambios = 0
             for hbl in hbls:
-                _guardar_estado_en_cursor(cursor, str(hbl), estado, usuario)
+                if _guardar_estado_en_cursor(cursor, hbl, estado, usuario, estados.get(hbl)):
+                    cambios += 1
         conn.commit()
-        return len(hbls)
+        return cambios
     finally:
         conn.close()
 

@@ -177,6 +177,23 @@ export async function actualizarEstadosMasivos(
   return response.data;
 }
 
+export interface CambioEstado {
+  estado: string;
+  usuario: string;
+  fecha_hora: string;
+}
+
+// Cambios de estado de un HBL, del más reciente al más antiguo.
+export async function obtenerHistorial(
+  hbl: string,
+  limite: number = 50
+): Promise<CambioEstado[]> {
+  const response = await api.get(
+    `/manifiestos/historial/${encodeURIComponent(hbl)}?limite=${limite}`
+  );
+  return response.data.historial;
+}
+
 // ============================================================
 // EXPORTACIONES
 // ============================================================

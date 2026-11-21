@@ -137,6 +137,23 @@ def init_db():
         )
     """)
 
+    # Historial de estados: una fila por cada cambio, con quién lo hizo. La
+    # tabla entregas solo guarda el estado actual (se sobrescribe).
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entregas_historial (
+            id SERIAL PRIMARY KEY,
+            hbl TEXT NOT NULL,
+            estado TEXT NOT NULL,
+            usuario TEXT,
+            fecha_hora TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_entregas_historial_hbl
+        ON entregas_historial (hbl, id DESC)
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -193,11 +210,11 @@ def obtener_todos_estados():
     conn.close()
     return {row[0]: {"estado": row[1], "usuario": row[2], "fecha_hora": row[3]} for row in rows}
 
-def guardar_estado(hbl: str, estado: str, usuario: str = None):
-    if usuario is None:
-        usuario = "Sistema"
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def _guardar_estado_en_cursor(cursor, hbl: str, estado: str, usuario: str) -> None:
+    """
+    Escribe un cambio de estado usando un cursor ya abierto: estado actual en
+    `entregas`, columna `estado` de `hbls` y una fila nueva en el historial.
+    """
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
@@ -207,13 +224,67 @@ def guardar_estado(hbl: str, estado: str, usuario: str = None):
             estado = EXCLUDED.estado,
             usuario = EXCLUDED.usuario,
             fecha_hora = EXCLUDED.fecha_hora
-    """, (str(hbl), estado, usuario, ahora))
+    """, (hbl, estado, usuario, ahora))
 
-    cursor.execute("UPDATE hbls SET estado = %s WHERE hbl = %s", (estado, str(hbl)))
+    cursor.execute("UPDATE hbls SET estado = %s WHERE hbl = %s", (estado, hbl))
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+    cursor.execute("""
+        INSERT INTO entregas_historial (hbl, estado, usuario, fecha_hora)
+        VALUES (%s, %s, %s, %s)
+    """, (hbl, estado, usuario, ahora))
+
+
+def guardar_estado(hbl: str, estado: str, usuario: str = None):
+    usuario = usuario or "Sistema"
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            _guardar_estado_en_cursor(cursor, str(hbl), estado, usuario)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def guardar_estados_masivo(hbls: list, estado: str, usuario: str = None) -> int:
+    """
+    Guarda el mismo estado en varios HBLs con una sola conexión y un solo
+    commit, y deja el histórico de cada uno. Devuelve cuántos se procesaron.
+    """
+    if not hbls:
+        return 0
+
+    usuario = usuario or "Sistema"
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            for hbl in hbls:
+                _guardar_estado_en_cursor(cursor, str(hbl), estado, usuario)
+        conn.commit()
+        return len(hbls)
+    finally:
+        conn.close()
+
+
+def obtener_historial(hbl: str, limite: int = 50) -> list:
+    """Cambios de estado de un HBL, del más reciente al más antiguo."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT estado, usuario, fecha_hora
+                FROM entregas_historial
+                WHERE hbl = %s
+                ORDER BY id DESC
+                LIMIT %s
+            """, (str(hbl), limite))
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {"estado": row[0], "usuario": row[1], "fecha_hora": row[2]}
+        for row in rows
+    ]
 
 def eliminar_estado(hbl: str):
     conn = get_db_connection()

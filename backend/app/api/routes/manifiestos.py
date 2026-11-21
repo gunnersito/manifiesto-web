@@ -41,6 +41,7 @@ from app.core.database import (
     listar_manifiestos,
     obtener_manifiesto,
     obtener_hbls,
+    obtener_historial,
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
 )
@@ -199,8 +200,8 @@ async def obtener_paradas(
     }
 
 @router.post("/marcar-estados")
-async def marcar_estados(data: EstadosMasivos):
-    cantidad = guardar_estados_masivo(data.hbls, data.estado)
+async def marcar_estados(data: EstadosMasivos, payload: dict = Depends(verificar_lector)):
+    cantidad = guardar_estados_masivo(data.hbls, data.estado, usuario=payload.get("sub"))
     return {"status": "success", "hbls_actualizados": cantidad, "estado": data.estado}
 
 @router.post("/hbls-parada")
@@ -231,19 +232,19 @@ async def obtener_hbls_parada(
     return {"provincia": provincia, "municipio": municipio, "direccion": direccion, "total_hbls": len(df_parada), "hbls": _limpiar_nan(resultado)}
 
 @router.post("/estado")
-async def actualizar_estado(data: EstadoUpdate):
+async def actualizar_estado(data: EstadoUpdate, payload: dict = Depends(verificar_lector)):
     if data.estado not in ESTADOS:
         raise HTTPException(status_code=400, detail=f"Estado inválido. Debe ser uno de: {ESTADOS}")
-    guardar_estado(data.hbl, data.estado)
+    # El usuario sale del token, no del cuerpo de la petición.
+    guardar_estado(data.hbl, data.estado, usuario=payload.get("sub"))
     return {"status": "success", "hbl": data.hbl, "estado": data.estado}
 
 @router.post("/estados-masivos")
-async def actualizar_estados_masivos(data: EstadosMasivos):
+async def actualizar_estados_masivos(data: EstadosMasivos, payload: dict = Depends(verificar_lector)):
     if data.estado not in ESTADOS:
         raise HTTPException(status_code=400, detail=f"Estado inválido. Debe ser uno de: {ESTADOS}")
-    for hbl in data.hbls:
-        guardar_estado(hbl, data.estado)
-    return {"status": "success", "hbls_actualizados": len(data.hbls), "estado": data.estado}
+    cantidad = guardar_estados_masivo(data.hbls, data.estado, usuario=payload.get("sub"))
+    return {"status": "success", "hbls_actualizados": cantidad, "estado": data.estado}
 
 # ============================================================
 # EXPORTACIONES (Leyendo desde Supabase Storage)
@@ -387,6 +388,12 @@ async def hbls_registros_globales(
     provincia: str = "",
 ):
     return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia)
+
+@router.get("/historial/{hbl}")
+async def historial_hbl(hbl: str, limite: int = 50):
+    """Cambios de estado de un HBL, con el usuario que los hizo."""
+    limite = max(1, min(limite, 200))
+    return {"hbl": hbl, "historial": obtener_historial(hbl, limite)}
 
 @router.get("/{manifiesto_id}/hbls")
 async def hbls_endpoint_filtrado(

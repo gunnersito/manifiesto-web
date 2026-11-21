@@ -8,6 +8,7 @@ from app.core.config import COL_HBL, ESTADO_DEFAULT
 from app.core.database import (
     obtener_todos_estados,
     guardar_estado as db_guardar_estado,
+    guardar_estados_masivo as db_guardar_estados_masivo,
     eliminar_estado as db_eliminar_estado,
 )
 
@@ -37,14 +38,10 @@ def eliminar_estado(hbl: str):
 
 def guardar_estados_masivo(hbls: list, estado: str, usuario: str = None):
     """
-    Guarda el estado de varios HBLs de una vez.
-    Devuelve la cantidad de HBLs afectados.
+    Guarda el estado de varios HBLs de una vez, con una sola conexión y un solo
+    commit. Devuelve la cantidad de HBLs afectados.
     """
-    contador = 0
-    for hbl in hbls:
-        guardar_estado(hbl, estado, usuario)
-        contador += 1
-    return contador
+    return db_guardar_estados_masivo(hbls, estado, usuario)
 
 
 def obtener_estados_por_hbl(hbls: list) -> dict:

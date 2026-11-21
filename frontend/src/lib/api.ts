@@ -549,6 +549,40 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Borra todo lo que guarda la sesión, tanto en cookies (lo que lee el
+// middleware) como en localStorage (lo que leen algunas páginas).
+export function limpiarSesion() {
+  Cookies.remove("token");
+  Cookies.remove("role");
+  Cookies.remove("username");
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    localStorage.removeItem("manifiesto_id");
+  }
+}
+
+// Si el token caduca o deja de ser válido, la API responde 401. En vez de dejar
+// las páginas con errores sueltos, se limpia la sesión y se vuelve al login.
+// El propio /auth/login responde 401 con la contraseña incorrecta, así que se
+// excluye para que el formulario pueda mostrar su mensaje.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const esLogin = String(error.config?.url || "").includes("/auth/login");
+    if (
+      error.response?.status === 401 &&
+      !esLogin &&
+      typeof window !== "undefined"
+    ) {
+      limpiarSesion();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function loginRequest(username: string, password: string) {
   const response = await api.post("/auth/login", { username, password });
   Cookies.set("token", response.data.access_token, { expires: 7 });
@@ -558,8 +592,7 @@ export async function loginRequest(username: string, password: string) {
 }
 
 export function logoutRequest() {
-  Cookies.remove("token");
-  Cookies.remove("role");
+  limpiarSesion();
   window.location.href = "/login";
 }
 

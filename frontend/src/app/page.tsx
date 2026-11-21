@@ -25,14 +25,14 @@ export default function Home() {
 
   // 👇 EL GUARDIÁN DEFINITIVO 👇
   useEffect(() => {
-    const token = Cookies.get("token");
-    if (!token) {
+    const sesion = Cookies.get("sesion");
+    if (!sesion) {
       router.replace("/login");
     }
   }, [router]);
 
   // Si no hay token, no renderizamos NADA (evita el parpadeo y la entrada directa)
-  if (!Cookies.get("token")) {
+  if (!Cookies.get("sesion")) {
     return null;
   }
 

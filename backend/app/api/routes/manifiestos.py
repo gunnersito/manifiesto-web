@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from app.core.config import SECRET_KEY, ALGORITHM, SUPABASE_URL, SUPABASE_KEY
@@ -14,6 +14,7 @@ from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
 from supabase import create_client, Client
 
+from app.api.routes.auth import COOKIE_TOKEN
 from app.core.config import COL_PROVINCIA, UMBRAL_SIMILITUD, COL_MUNICIPIO, COL_DIRECCION, COL_HBL, COL_BULTOS, ESTADOS
 from app.services.excel_parser import (
     cargar_excel,
@@ -51,23 +52,28 @@ logger = logging.getLogger(__name__)
 # Inicializamos el cliente de Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
-def verificar_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def _payload_de_peticion(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> dict:
+    """Valida el JWT de la cookie httpOnly o, si no hay, del header Bearer."""
+    token = credentials.credentials if credentials else request.cookies.get(COOKIE_TOKEN)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
-        return payload
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
-def verificar_lector(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+def verificar_admin(payload: dict = Depends(_payload_de_peticion)):
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
+    return payload
+
+def verificar_lector(payload: dict = Depends(_payload_de_peticion)):
+    return payload
 
 # Todas las rutas de este router exigen un token válido (cualquier rol).
 # Las que además requieren rol admin añaden Depends(verificar_admin).

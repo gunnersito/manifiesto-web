@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
 import { AlertCircle, CheckCircle, FileText, Loader2, Upload } from "lucide-react";
-import { API_URL } from "@/lib/api";
+import { compararManifiestos } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
 import { LoadingModal } from "@/components/ui/loading-modal";
@@ -31,22 +30,7 @@ export function ComparadorManifiestos() {
     setComparando(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file_general", archivoGeneral);
-      formData.append("file_ventas", archivoVentas);
-
-      const res = await fetch(`${API_URL}/manifiestos/comparar-manifiestos`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${Cookies.get("token")}`,
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Error al comparar manifiestos");
-      }
+      await compararManifiestos(archivoGeneral, archivoVentas);
 
       setModalContenido({
         titulo: "¡Comparación exitosa!",
@@ -59,7 +43,7 @@ export function ComparadorManifiestos() {
     } catch (err: any) {
       setModalContenido({
         titulo: "Error en la comparación",
-        mensaje: err.message || "Error en la comparación",
+        mensaje: err.response?.data?.detail || err.message || "Error en la comparación",
         tipo: "error",
       });
       setModalAbierto(true);

@@ -227,6 +227,50 @@ def test_los_estados_masivos_tampoco_duplican_el_historial(cliente):
         assert historial[0]["usuario"] == ADMIN[0]
 
 
+def test_el_login_deja_el_token_en_una_cookie_http_only(cliente):
+    """El JWT viaja en una cookie httpOnly y esa cookie basta para autorizar."""
+    cliente.cookies.clear()
+    try:
+        respuesta = cliente.post(
+            "/api/auth/login",
+            json={"username": ADMIN[0], "password": ADMIN[1]},
+        )
+        assert respuesta.status_code == 200, respuesta.text
+
+        cookie = respuesta.headers["set-cookie"]
+        assert cookie.startswith("token=")
+        atributos = cookie.lower()
+        assert "httponly" in atributos
+        assert "secure" in atributos
+        assert "samesite=none" in atributos
+
+        # Sin cabecera Authorization: solo la cookie que acaba de emitir.
+        lista = cliente.get(
+            "/api/manifiestos/lista",
+            headers={"Cookie": cookie.split(";", 1)[0]},
+        )
+        assert lista.status_code == 200, lista.text
+    finally:
+        cliente.cookies.clear()
+
+
+def test_no_admite_contrasenas_cortas_ni_roles_fuera_del_enum(cliente):
+    token = _token(cliente)
+    corta = cliente.post(
+        "/api/usuarios/",
+        json={"username": "prueba_validacion", "password": "1234567", "role": "guest"},
+        headers=_cabeceras(token),
+    )
+    assert corta.status_code == 422, corta.text
+
+    rol = cliente.post(
+        "/api/usuarios/",
+        json={"username": "prueba_validacion", "password": "12345678", "role": "superadmin"},
+        headers=_cabeceras(token),
+    )
+    assert rol.status_code == 422, rol.text
+
+
 def test_cors_acepta_solo_el_origen_configurado(cliente):
     permitido = cliente.get(
         "/health", headers={"Origin": "http://localhost:3000"}

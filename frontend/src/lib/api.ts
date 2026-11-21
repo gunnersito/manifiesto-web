@@ -10,28 +10,13 @@ export const API_URL = (
 // 2. Creamos la instancia
 export const api = axios.create({
   baseURL: API_URL,
+  // La sesión viaja en una cookie httpOnly emitida por el backend: el navegador
+  // la adjunta sola y el token nunca pasa por JavaScript.
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
-
-// 3. EL INTERCEPTOR MÁGICO 👇
-// Esto se ejecuta ANTES de cada petición y le añade el token
-api.interceptors.request.use(
-  (config) => {
-    // Verificamos que estemos en el navegador (porque localStorage no existe en el servidor)
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 // --- Tipos de datos que devuelve el backend ---
 export interface ProvinciaResumen {
@@ -557,18 +542,11 @@ export async function compararManifiestos(
 
 import Cookies from "js-cookie";
 
-// Interceptor para añadir el token a cada petición
-api.interceptors.request.use((config) => {
-  const token = Cookies.get("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Borra todo lo que guarda la sesión, tanto en cookies (lo que lee el
-// middleware) como en localStorage (lo que leen algunas páginas).
+// La cookie `sesion` no lleva el token (ese es httpOnly): solo le dice al
+// middleware que hay una sesión abierta. Las demás son datos de interfaz.
 export function limpiarSesion() {
+  Cookies.remove("sesion");
+  // Cookie antigua de cuando el token vivía en JavaScript.
   Cookies.remove("token");
   Cookies.remove("role");
   Cookies.remove("username");
@@ -602,13 +580,21 @@ api.interceptors.response.use(
 
 export async function loginRequest(username: string, password: string) {
   const response = await api.post("/auth/login", { username, password });
-  Cookies.set("token", response.data.access_token, { expires: 7 });
+  // El token lo guarda el backend en su cookie httpOnly; aquí solo se marca la
+  // sesión (para el middleware) y los datos que muestran las pantallas.
+  Cookies.set("sesion", "1", { expires: 7, sameSite: "lax" });
   Cookies.set("role", response.data.role, { expires: 7 });
-  Cookies.set("username", response.data.username, { expires: 7 }); // 👈 Añade esta línea
+  Cookies.set("username", response.data.username, { expires: 7 });
   return response.data;
 }
 
-export function logoutRequest() {
+export async function logoutRequest() {
+  try {
+    // La cookie httpOnly solo la puede borrar el backend.
+    await api.post("/auth/logout");
+  } catch {
+    // Aunque la API falle, la sesión local se cierra igual.
+  }
   limpiarSesion();
   window.location.href = "/login";
 }

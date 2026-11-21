@@ -53,7 +53,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=False,
+    # La sesión viaja en una cookie httpOnly, así que el navegador necesita
+    # permiso para enviar credenciales desde el origen del frontend.
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

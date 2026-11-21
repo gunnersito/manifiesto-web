@@ -50,7 +50,7 @@ export function ManifiestoProvider({ children }: { children: ReactNode }) {
   // --- Cargar lista al montar ---
     const recargarLista = useCallback(async () => {
     // Si no hay token, no intentamos cargar nada
-    if (!Cookies.get("token")) {
+    if (!Cookies.get("sesion")) {
       setLoadingManifiestos(false);
       return [];
     }
@@ -70,7 +70,7 @@ export function ManifiestoProvider({ children }: { children: ReactNode }) {
 
   // --- Al montar: cargar lista + último manifiesto ---
       useEffect(() => {
-    if (!Cookies.get("token")) return;
+    if (!Cookies.get("sesion")) return;
     (async () => {
       const lista = await recargarLista();
       if (lista.length > 0 && !manifiestoId) {

@@ -74,6 +74,7 @@ export default function PerfilPage() {
             <div className="relative">
               <Input
                 required
+                minLength={8}
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

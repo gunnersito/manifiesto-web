@@ -171,6 +171,7 @@ export default function ConfiguracionPage() {
             <div className="relative">
               <Input
                 required
+                minLength={8}
                 type={showPassCreate ? "text" : "password"}
                 value={nuevoUser.password}
                 onChange={(e) => setNuevoUser({...nuevoUser, password: e.target.value})}
@@ -311,6 +312,7 @@ export default function ConfiguracionPage() {
                 <Label className="mb-2 block">Nueva Contraseña (opcional)</Label>
                 <div className="relative">
                   <Input
+                    minLength={8}
                     type={showPassEdit ? "text" : "password"}
                     placeholder="Dejar en blanco para no cambiar"
                     value={editPassword}

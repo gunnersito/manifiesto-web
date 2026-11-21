@@ -1,5 +1,7 @@
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.database import encriptar_password, get_db_connection
 from app.api.routes.manifiestos import verificar_admin, verificar_lector
 
@@ -7,15 +9,15 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 class UsuarioCreate(BaseModel):
     username: str
-    password: str
-    role: str = "guest"
+    password: str = Field(min_length=8, max_length=72)
+    role: Literal["admin", "guest"] = "guest"
 
 class UsuarioUpdate(BaseModel):
-    password: str | None = None
-    role: str | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=72)
+    role: Literal["admin", "guest"] | None = None
 
 class PasswordUpdate(BaseModel):
-    password: str
+    password: str = Field(min_length=8, max_length=72)
 
 class ManifiestoSeleccionado(BaseModel):
     manifiesto_id: int | None

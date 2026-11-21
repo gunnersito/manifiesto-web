@@ -40,8 +40,9 @@ CLAVE_PRUEBA = "clave-solo-para-pruebas"
 
 @pytest.fixture(scope="module")
 def cliente():
-    # El lifespan crea las tablas y el admin definido en el entorno.
-    with TestClient(app) as cliente:
+    # El lifespan crea las tablas y el admin definido en el entorno. Se usa
+    # https para que el cliente envíe la cookie Secure de la sesión.
+    with TestClient(app, base_url="https://testserver") as cliente:
         yield cliente
 
 
@@ -72,26 +73,17 @@ def datos_de_prueba_limpios(cliente):
     _borrar_datos_de_prueba()
 
 
-def _login(cliente: TestClient, username: str, password: str) -> str:
+def _login(cliente: TestClient, username: str, password: str) -> None:
+    """Inicia sesión: el token queda solo en la cookie httpOnly del cliente."""
     respuesta = cliente.post(
         "/api/auth/login", json={"username": username, "password": password}
     )
     assert respuesta.status_code == 200, respuesta.text
-    return respuesta.json()["access_token"]
+    assert "access_token" not in respuesta.json()
 
 
-def _token(cliente: TestClient) -> str:
-    return _login(cliente, *ADMIN)
-
-
-def _cabeceras(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _historial(cliente: TestClient, hbl: str, token: str) -> list:
-    respuesta = cliente.get(
-        f"/api/manifiestos/historial/{hbl}", headers=_cabeceras(token)
-    )
+def _historial(cliente: TestClient, hbl: str) -> list:
+    respuesta = cliente.get(f"/api/manifiestos/historial/{hbl}")
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()["historial"]
 
@@ -109,14 +101,17 @@ def test_raiz(cliente):
 
 
 def test_login_correcto(cliente):
+    cliente.cookies.clear()
     respuesta = cliente.post(
         "/api/auth/login", json={"username": ADMIN[0], "password": ADMIN[1]}
     )
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["role"] == "admin"
-    assert cuerpo["token_type"] == "bearer"
     assert cuerpo["username"] == ADMIN[0]
+    assert "access_token" not in cuerpo
+    assert "token_type" not in cuerpo
+    assert respuesta.headers["set-cookie"].startswith("token=")
 
 
 def test_login_con_password_incorrecta(cliente):
@@ -126,45 +121,43 @@ def test_login_con_password_incorrecta(cliente):
     assert respuesta.status_code == 401
 
 
-def test_lista_sin_token(cliente):
+def test_lista_sin_cookie(cliente):
+    cliente.cookies.clear()
     assert cliente.get("/api/manifiestos/lista").status_code == 401
 
 
-def test_lista_con_token(cliente):
-    respuesta = cliente.get(
-        "/api/manifiestos/lista",
-        headers={"Authorization": f"Bearer {_token(cliente)}"},
-    )
+def test_lista_con_cookie(cliente):
+    _login(cliente, *ADMIN)
+    respuesta = cliente.get("/api/manifiestos/lista")
     assert respuesta.status_code == 200
     assert "manifiestos" in respuesta.json()
 
 
-def test_lista_con_token_invalido(cliente):
+def test_lista_con_cookie_invalida(cliente):
+    cliente.cookies.clear()
     respuesta = cliente.get(
-        "/api/manifiestos/lista", headers={"Authorization": "Bearer no-es-un-token"}
+        "/api/manifiestos/lista", headers={"Cookie": "token=no-es-un-token"}
     )
     assert respuesta.status_code == 401
 
 
 def test_el_historial_guarda_el_usuario_del_token(cliente):
     """El usuario sale del token: un 'usuario' en el cuerpo no lo suplanta."""
-    admin = _token(cliente)
+    _login(cliente, *ADMIN)
     creado = cliente.post(
         "/api/usuarios/",
         json={"username": USUARIO_PRUEBA, "password": CLAVE_PRUEBA, "role": "guest"},
-        headers=_cabeceras(admin),
     )
     assert creado.status_code == 200, creado.text
 
-    token = _login(cliente, USUARIO_PRUEBA, CLAVE_PRUEBA)
+    _login(cliente, USUARIO_PRUEBA, CLAVE_PRUEBA)
     respuesta = cliente.post(
         "/api/manifiestos/estado",
         json={"hbl": HBL_USUARIO, "estado": "Despachada", "usuario": "suplantado"},
-        headers=_cabeceras(token),
     )
     assert respuesta.status_code == 200, respuesta.text
 
-    historial = _historial(cliente, HBL_USUARIO, token)
+    historial = _historial(cliente, HBL_USUARIO)
     assert len(historial) == 1
     assert historial[0]["usuario"] == USUARIO_PRUEBA
     assert historial[0]["estado"] == "Despachada"
@@ -172,16 +165,15 @@ def test_el_historial_guarda_el_usuario_del_token(cliente):
 
 
 def test_repetir_el_mismo_estado_no_duplica_el_historial(cliente):
-    token = _token(cliente)
+    _login(cliente, *ADMIN)
     url = "/api/manifiestos/estado"
 
     primero = cliente.post(
         url,
         json={"hbl": HBL_DEDUPE, "estado": "Despachada"},
-        headers=_cabeceras(token),
     )
     assert primero.status_code == 200, primero.text
-    historial = _historial(cliente, HBL_DEDUPE, token)
+    historial = _historial(cliente, HBL_DEDUPE)
     assert len(historial) == 1
     fecha_del_cambio = historial[0]["fecha_hora"]
 
@@ -189,10 +181,9 @@ def test_repetir_el_mismo_estado_no_duplica_el_historial(cliente):
     repetido = cliente.post(
         url,
         json={"hbl": HBL_DEDUPE, "estado": "Despachada"},
-        headers=_cabeceras(token),
     )
     assert repetido.status_code == 200, repetido.text
-    historial = _historial(cliente, HBL_DEDUPE, token)
+    historial = _historial(cliente, HBL_DEDUPE)
     assert len(historial) == 1
     assert historial[0]["fecha_hora"] == fecha_del_cambio
 
@@ -200,28 +191,27 @@ def test_repetir_el_mismo_estado_no_duplica_el_historial(cliente):
     cambio = cliente.post(
         url,
         json={"hbl": HBL_DEDUPE, "estado": "Entregada"},
-        headers=_cabeceras(token),
     )
     assert cambio.status_code == 200, cambio.text
-    assert len(_historial(cliente, HBL_DEDUPE, token)) == 2
+    assert len(_historial(cliente, HBL_DEDUPE)) == 2
 
 
 def test_los_estados_masivos_tampoco_duplican_el_historial(cliente):
-    token = _token(cliente)
+    _login(cliente, *ADMIN)
     hbls = [HBL_MASIVO_A, HBL_MASIVO_B]
     cuerpo = {"hbls": hbls, "estado": "Pendiente"}
     url = "/api/manifiestos/estados-masivos"
 
-    primero = cliente.post(url, json=cuerpo, headers=_cabeceras(token))
+    primero = cliente.post(url, json=cuerpo)
     assert primero.status_code == 200, primero.text
     assert primero.json()["hbls_actualizados"] == 2
 
-    repetido = cliente.post(url, json=cuerpo, headers=_cabeceras(token))
+    repetido = cliente.post(url, json=cuerpo)
     assert repetido.status_code == 200, repetido.text
     assert repetido.json()["hbls_actualizados"] == 0
 
     for hbl in hbls:
-        historial = _historial(cliente, hbl, token)
+        historial = _historial(cliente, hbl)
         assert len(historial) == 1
         assert historial[0]["estado"] == "Pendiente"
         assert historial[0]["usuario"] == ADMIN[0]
@@ -244,29 +234,31 @@ def test_el_login_deja_el_token_en_una_cookie_http_only(cliente):
         assert "secure" in atributos
         assert "samesite=none" in atributos
 
-        # Sin cabecera Authorization: solo la cookie que acaba de emitir.
-        lista = cliente.get(
-            "/api/manifiestos/lista",
-            headers={"Cookie": cookie.split(";", 1)[0]},
-        )
+        assert "access_token" not in respuesta.json()
+
+        # Sin cabecera Authorization: el cliente solo tiene la cookie emitida.
+        lista = cliente.get("/api/manifiestos/lista")
         assert lista.status_code == 200, lista.text
+
+        # El logout la borra y deja de autorizar.
+        salida = cliente.post("/api/auth/logout")
+        assert salida.status_code == 200, salida.text
+        assert cliente.get("/api/manifiestos/lista").status_code == 401
     finally:
         cliente.cookies.clear()
 
 
 def test_no_admite_contrasenas_cortas_ni_roles_fuera_del_enum(cliente):
-    token = _token(cliente)
+    _login(cliente, *ADMIN)
     corta = cliente.post(
         "/api/usuarios/",
         json={"username": "prueba_validacion", "password": "1234567", "role": "guest"},
-        headers=_cabeceras(token),
     )
     assert corta.status_code == 422, corta.text
 
     rol = cliente.post(
         "/api/usuarios/",
         json={"username": "prueba_validacion", "password": "12345678", "role": "superadmin"},
-        headers=_cabeceras(token),
     )
     assert rol.status_code == 422, rol.text
 

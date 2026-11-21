@@ -52,11 +52,8 @@ async def login(data: LoginRequest, response: Response):
 
     response.set_cookie(value=token, **_opciones_cookie())
 
-    # `access_token` se mantiene en el cuerpo por compatibilidad con clientes de
-    # la API; el frontend ya no lo guarda y usa solo la cookie.
+    # El token solo viaja en la cookie httpOnly: la respuesta no lo expone.
     return {
-        "access_token": token,
-        "token_type": "bearer",
         "role": user[2],
         "username": user[0],
         "ultimo_manifiesto_id": user[3]

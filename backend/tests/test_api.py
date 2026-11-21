@@ -21,11 +21,17 @@ os.environ.setdefault("ADMIN_PASSWORD", "clave-solo-para-pruebas")
 # Orígenes propios para no depender de los de producción.
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 
+import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.core.database import get_db_connection  # noqa: E402
+from app.core.config import COL_HBL  # noqa: E402
+from app.core.database import (  # noqa: E402
+    get_db_connection,
+    obtener_estados_por_hbls,
+)
 from app.main import app  # noqa: E402
+from app.services.estados_service import enriquecer_df_con_estados  # noqa: E402
 
 ADMIN = (os.environ["ADMIN_USERNAME"], os.environ["ADMIN_PASSWORD"])
 
@@ -34,6 +40,7 @@ HBL_USUARIO = "PRUEBA-HISTORIAL-USUARIO"
 HBL_DEDUPE = "PRUEBA-HISTORIAL-DEDUPE"
 HBL_MASIVO_A = "PRUEBA-HISTORIAL-MASIVO-A"
 HBL_MASIVO_B = "PRUEBA-HISTORIAL-MASIVO-B"
+HBL_ENRIQUECIDO = "PRUEBA-HISTORIAL-ENRIQUECIDO"
 USUARIO_PRUEBA = "prueba_historial"
 CLAVE_PRUEBA = "clave-solo-para-pruebas"
 
@@ -48,7 +55,7 @@ def cliente():
 
 def _borrar_datos_de_prueba():
     """Deja limpias las filas que crean estas pruebas (CI y ejecuciones locales)."""
-    hbls = [HBL_USUARIO, HBL_DEDUPE, HBL_MASIVO_A, HBL_MASIVO_B]
+    hbls = [HBL_USUARIO, HBL_DEDUPE, HBL_MASIVO_A, HBL_MASIVO_B, HBL_ENRIQUECIDO]
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -261,6 +268,26 @@ def test_no_admite_contrasenas_cortas_ni_roles_fuera_del_enum(cliente):
         json={"username": "prueba_validacion", "password": "12345678", "role": "superadmin"},
     )
     assert rol.status_code == 422, rol.text
+
+
+def test_el_enriquecido_solo_consulta_los_hbls_del_dataframe(cliente):
+    _login(cliente, *ADMIN)
+    respuesta = cliente.post(
+        "/api/manifiestos/estado",
+        json={"hbl": HBL_ENRIQUECIDO, "estado": "Despachada"},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+
+    # La consulta trae solo el HBL pedido, no el resto de la tabla.
+    assert obtener_estados_por_hbls([HBL_ENRIQUECIDO]) == {
+        HBL_ENRIQUECIDO: "Despachada"
+    }
+
+    df = pd.DataFrame(
+        {COL_HBL: [HBL_ENRIQUECIDO, "PRUEBA-HISTORIAL-SIN-ESTADO"]}
+    )
+    resultado = enriquecer_df_con_estados(df)
+    assert resultado["Estado"].tolist() == ["Despachada", "Pendiente"]
 
 
 def test_los_listados_tienen_tope_de_pagina_y_validan_el_estado(cliente):

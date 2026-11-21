@@ -223,6 +223,25 @@ def obtener_todos_estados():
     conn.close()
     return {row[0]: {"estado": row[1], "usuario": row[2], "fecha_hora": row[3]} for row in rows}
 
+def obtener_estados_por_hbls(hbls: list) -> dict:
+    """
+    Estado actual solo de los HBLs pedidos, sin traer el resto de la tabla.
+
+    Devuelve {hbl: estado}; los HBLs que no tengan fila no aparecen.
+    """
+    if not hbls:
+        return {}
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT hbl, estado FROM entregas WHERE hbl = ANY(%s)", (hbls,)
+            )
+            return dict(cursor.fetchall())
+    finally:
+        conn.close()
+
 def _estado_actual(cursor, hbl: str) -> str | None:
     """Estado vigente de un HBL: manda `entregas` y, si no hay fila, `hbls`."""
     cursor.execute("SELECT estado FROM entregas WHERE hbl = %s", (hbl,))

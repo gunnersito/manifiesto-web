@@ -583,6 +583,8 @@ export async function loginRequest(username: string, password: string) {
   // El token lo guarda el backend en su cookie httpOnly; aquí solo se marca la
   // sesión (para el middleware) y los datos que muestran las pantallas.
   Cookies.set("sesion", "1", { expires: 7, sameSite: "lax" });
+  // Cookie antigua de cuando el token vivía en JavaScript: se borra al entrar.
+  Cookies.remove("token");
   Cookies.set("role", response.data.role, { expires: 7 });
   Cookies.set("username", response.data.username, { expires: 7 });
   return response.data;

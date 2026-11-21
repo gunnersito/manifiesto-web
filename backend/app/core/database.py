@@ -137,6 +137,19 @@ def init_db():
         )
     """)
 
+    # Índices para los filtros del listado y su paginación.
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hbls_manifiesto ON hbls (manifiesto_id)"
+    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hbls_estado ON hbls (estado)")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hbls_provincia ON hbls (provincia)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hbls_orden "
+        "ON hbls (manifiesto_id, provincia, municipio, direccion, hbl)"
+    )
+
     # Historial de estados: una fila por cada cambio, con quién lo hizo. La
     # tabla entregas solo guarda el estado actual (se sobrescribe).
     cursor.execute("""

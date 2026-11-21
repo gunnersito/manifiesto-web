@@ -175,6 +175,12 @@ export default function ConfiguracionPage() {
                 type={showPassCreate ? "text" : "password"}
                 value={nuevoUser.password}
                 onChange={(e) => setNuevoUser({...nuevoUser, password: e.target.value})}
+                onInvalid={(e) =>
+                  e.currentTarget.setCustomValidity(
+                    "La contraseña debe tener al menos 8 caracteres."
+                  )
+                }
+                onInput={(e) => e.currentTarget.setCustomValidity("")}
                 placeholder="••••••••"
                 className="!h-[42px] bg-white pr-10"
               />
@@ -317,6 +323,12 @@ export default function ConfiguracionPage() {
                     placeholder="Dejar en blanco para no cambiar"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
+                    onInvalid={(e) =>
+                      e.currentTarget.setCustomValidity(
+                        "La contraseña debe tener al menos 8 caracteres."
+                      )
+                    }
+                    onInput={(e) => e.currentTarget.setCustomValidity("")}
                     className={`bg-white !h-[42px] pr-10 ${
                       editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm 
                         ? "border-red-500 focus-visible:ring-red-500" 

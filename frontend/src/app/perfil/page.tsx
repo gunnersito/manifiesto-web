@@ -78,6 +78,12 @@ export default function PerfilPage() {
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onInvalid={(e) =>
+                  e.currentTarget.setCustomValidity(
+                    "La contraseña debe tener al menos 8 caracteres."
+                  )
+                }
+                onInput={(e) => e.currentTarget.setCustomValidity("")}
                 placeholder="••••••••"
                 // 👇 Borde rojo si no coinciden
                 className={`!h-[42px] pr-10 ${

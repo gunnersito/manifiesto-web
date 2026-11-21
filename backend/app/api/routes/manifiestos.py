@@ -10,7 +10,7 @@ import logging
 import math
 
 import pandas as pd
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from supabase import create_client, Client
 
@@ -74,6 +74,14 @@ def verificar_admin(payload: dict = Depends(_payload_de_peticion)):
 
 def verificar_lector(payload: dict = Depends(_payload_de_peticion)):
     return payload
+
+def validar_estado(estado: str) -> None:
+    """Rechaza un estado que no esté en la lista, si se ha enviado uno."""
+    if estado and estado not in ESTADOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Estado inválido. Debe ser uno de: {ESTADOS}",
+        )
 
 # Todas las rutas de este router exigen un token válido (cualquier rol).
 # Las que además requieren rol admin añaden Depends(verificar_admin).
@@ -387,12 +395,13 @@ async def listar_endpoint():
 @router.get("/hbls")
 async def hbls_registros_globales(
     manifiesto_id: Optional[int] = None,
-    pagina: int = 1,
-    por_pagina: int = 15,
+    pagina: int = Query(1, ge=1),
+    por_pagina: int = Query(15, ge=1, le=200),
     busqueda: str = "",
     estado: str = "",
     provincia: str = "",
 ):
+    validar_estado(estado)
     return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia)
 
 @router.get("/historial/{hbl}")
@@ -404,12 +413,13 @@ async def historial_hbl(hbl: str, limite: int = 50):
 @router.get("/{manifiesto_id}/hbls")
 async def hbls_endpoint_filtrado(
     manifiesto_id: int,
-    pagina: int = 1,
-    por_pagina: int = 15,
+    pagina: int = Query(1, ge=1),
+    por_pagina: int = Query(15, ge=1, le=200),
     busqueda: str = "",
     estado: str = "",
     provincia: str = "",
 ):
+    validar_estado(estado)
     return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia)
 
 @router.get("/{manifiesto_id}")
@@ -565,9 +575,18 @@ async def buscar_por_municipio(
     from app.core.database import obtener_hbls
     from app.services.paradas_service import resumen_paradas, marcar_paradas
     
-    # 1. Traemos los HBLs de ese municipio Y DE ESE MANIFIESTO
-    datos = obtener_hbls(manifiesto_id, pagina=1, por_pagina=999999, provincia=municipio)
-    hbls = datos["hbls"]
+    # 1. Traemos los HBLs de ese municipio Y DE ESE MANIFIESTO, por páginas
+    # (el listado tiene un tope de 200) para no truncar municipios grandes.
+    hbls = []
+    pagina = 1
+    while True:
+        datos = obtener_hbls(
+            manifiesto_id, pagina=pagina, por_pagina=200, provincia=municipio
+        )
+        hbls.extend(datos["hbls"])
+        if pagina >= datos["total_paginas"] or not datos["hbls"]:
+            break
+        pagina += 1
     
     if not hbls:
         return {"paradas": []}

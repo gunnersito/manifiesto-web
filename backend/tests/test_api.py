@@ -263,6 +263,22 @@ def test_no_admite_contrasenas_cortas_ni_roles_fuera_del_enum(cliente):
     assert rol.status_code == 422, rol.text
 
 
+def test_los_listados_tienen_tope_de_pagina_y_validan_el_estado(cliente):
+    _login(cliente, *ADMIN)
+
+    demasiado = cliente.get("/api/manifiestos/hbls?por_pagina=999999")
+    assert demasiado.status_code == 422, demasiado.text
+
+    estado_invalido = cliente.get("/api/manifiestos/hbls?estado=Inventado")
+    assert estado_invalido.status_code == 400, estado_invalido.text
+
+    filtrado_demasiado = cliente.get("/api/manifiestos/1/hbls?por_pagina=999999")
+    assert filtrado_demasiado.status_code == 422, filtrado_demasiado.text
+
+    valido = cliente.get("/api/manifiestos/hbls?por_pagina=200&estado=Pendiente")
+    assert valido.status_code == 200, valido.text
+
+
 def test_cors_acepta_solo_el_origen_configurado(cliente):
     permitido = cliente.get(
         "/health", headers={"Origin": "http://localhost:3000"}

@@ -18,7 +18,9 @@ export default function LoginPage() {
       const data = await loginRequest(username, password);
 
       // El token queda en la cookie httpOnly del backend; aquí solo se guardan
-      // datos de interfaz.
+      // datos de interfaz. Se borra el token de sesiones anteriores, cuando
+      // vivía en localStorage.
+      localStorage.removeItem("token");
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
       if (data.ultimo_manifiesto_id) {

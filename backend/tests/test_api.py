@@ -367,6 +367,39 @@ def test_los_hbls_se_piden_filtrados_por_parada(cliente):
     assert todas.json()["total"] == 3
 
 
+def test_el_resumen_de_provincia_sale_de_la_tabla_hbls(cliente):
+    """La vista de provincia no lee el Excel: agrupa las filas de `hbls`.
+
+    El entorno de pruebas apunta a un Supabase de mentira, así que si el
+    endpoint intentara descargar el archivo original fallaría.
+    """
+    _login(cliente, *ADMIN)
+    manifiesto_id = _crear_manifiesto_con_paradas()
+    url = f"/api/manifiestos/{manifiesto_id}/provincia/PROVINCIA-PRUEBA"
+
+    respuesta = cliente.post(url)
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    assert cuerpo["total_hbls"] == 3
+    assert cuerpo["total_hbls_sin_filtro"] == 3
+    assert cuerpo["total_paradas"] == 2
+    assert [(p["Dirección"], p["Cant HBLs"], p["Bultos"]) for p in cuerpo["paradas"]] == [
+        ("CALLE 1", 2, 2),
+        ("CALLE 2", 1, 1),
+    ]
+
+    # Un filtro sin resultados deja el resumen vacío pero conserva el total de
+    # la provincia, que es el que muestra la cabecera.
+    filtrado = cliente.post(url, data={"estado": "Entregada"})
+    assert filtrado.status_code == 200, filtrado.text
+    assert filtrado.json()["total_hbls"] == 0
+    assert filtrado.json()["total_paradas"] == 0
+    assert filtrado.json()["total_hbls_sin_filtro"] == 3
+
+    ajeno = cliente.post(f"/api/manifiestos/{manifiesto_id}/provincia/OTRA-PROVINCIA")
+    assert ajeno.status_code == 404, ajeno.text
+
+
 def test_los_listados_tienen_tope_de_pagina_y_validan_el_estado(cliente):
     _login(cliente, *ADMIN)
 

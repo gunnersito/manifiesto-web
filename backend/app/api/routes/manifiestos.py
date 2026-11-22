@@ -42,6 +42,7 @@ from app.core.database import (
     listar_manifiestos,
     obtener_manifiesto,
     obtener_hbls,
+    obtener_hbls_de_provincia,
     obtener_historial,
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
@@ -114,6 +115,28 @@ def _limpiar_nan(obj):
     if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
         return 0
     return obj
+
+
+# Nombre de cada columna de la tabla `hbls` en el DataFrame que esperan los
+# servicios de paradas.
+_COLUMNAS_DESDE_BD = {
+    "hbl": COL_HBL,
+    "provincia": COL_PROVINCIA,
+    "municipio": COL_MUNICIPIO,
+    "direccion": COL_DIRECCION,
+    "remitente": "Nombre y Apellidos del REMITENTE:",
+    "destinatario": "Nombre y Apellidos del DESTINATARIO:",
+    "telefono": "Teléfono del DESTINATARIO",
+    "contenido": "Contenido del paquete (Descripción)",
+    "bultos": COL_BULTOS,
+    "peso": "Peso (Kg)",
+    "parada": "Paradas",
+}
+
+
+def _df_desde_hbls(filas: list[dict]) -> pd.DataFrame:
+    """Convierte filas de la tabla `hbls` al DataFrame que esperan los servicios."""
+    return pd.DataFrame(filas).rename(columns=_COLUMNAS_DESDE_BD)
 
 
 def _cargar_manifiesto(
@@ -461,15 +484,14 @@ async def obtener_provincia_por_id(
     estado: str = Form(""),
     ubicacion: str = Form(""),
 ):
-    contenido = descargar_archivo_supabase(manifiesto_id)
-    df = cargar_excel(contenido, None)
-    df, _ = aplicar_mapeo_columnas(df)
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df)
-    df = enriquecer_df_con_estados(df)
+    # Se usan las filas que ya guardó la carga del manifiesto: son las mismas que
+    # hay en el Excel de Storage, así que el resumen coincide con él sin
+    # descargarlo ni volver a parsearlo en cada visita a la provincia.
+    filas = obtener_hbls_de_provincia(manifiesto_id, provincia)
+    if not filas:
+        raise HTTPException(status_code=404, detail="Provincia no encontrada")
 
-    df_prov = df[df[COL_PROVINCIA] == provincia]
-    if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
+    df_prov = enriquecer_df_con_estados(_df_desde_hbls(filas))
 
     df_filtrado = filtrar_hbls(df_prov, busqueda=busqueda, estado=estado, ubicacion=ubicacion)
 

@@ -528,6 +528,34 @@ def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 1
     ]
     return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "total_paginas": (total + por_pagina - 1) // por_pagina, "hbls": hbls}
 
+def obtener_hbls_de_provincia(manifiesto_id: int, provincia: str) -> list[dict]:
+    """
+    Todas las filas de una provincia de un manifiesto, en el orden en que se
+    cargaron. La vista de provincia calcula sus paradas con estas filas, en vez
+    de descargar y volver a leer el Excel de Storage.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT hbl, provincia, municipio, direccion, remitente,
+                       destinatario, telefono, contenido, bultos, peso, parada
+                FROM hbls
+                WHERE manifiesto_id = %s AND provincia = %s
+                ORDER BY id
+            """, (manifiesto_id, provincia))
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {"hbl": r[0], "provincia": r[1], "municipio": r[2], "direccion": r[3],
+         "remitente": r[4], "destinatario": r[5], "telefono": r[6],
+         "contenido": r[7], "bultos": r[8], "peso": r[9], "parada": r[10]}
+        for r in rows
+    ]
+
+
 def eliminar_manifiesto(manifiesto_id: int) -> bool:
     conn = get_db_connection()
     cursor = conn.cursor()

@@ -24,6 +24,20 @@ import {
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ComparadorManifiestos } from "@/components/ComparadorManifiestos";
 
+// Alto por fila, con topes para que los gráficos no crezcan sin medida
+const ALTO_MIN = 220;
+const ALTO_MAX = 440;
+const alturaBarras = (filas: number) =>
+  Math.min(ALTO_MAX, Math.max(ALTO_MIN, filas * 28));
+
+const MARGEN = { top: 4, right: 16, left: 0, bottom: 4 };
+const EJE_X = {
+  type: "number" as const,
+  allowDecimals: false,
+  tick: { fontSize: 11 },
+  tickFormatter: (valor: number) => valor.toLocaleString("es"),
+};
+
 export default function DashboardPage() {
   const { metadata } = useManifiesto();
 
@@ -109,22 +123,27 @@ export default function DashboardPage() {
             </span>
           </summary>
           <div className="p-6 pt-0">
-            <ResponsiveContainer width="100%" height={Math.max(300, provinciasPorParadas.length * 35)}>
+            <ResponsiveContainer width="100%" height={alturaBarras(provinciasPorParadas.length)}>
               <BarChart
                 data={provinciasPorParadas}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                margin={MARGEN}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
+                <XAxis {...EJE_X} />
                 <YAxis
                   type="category"
                   dataKey="provincia"
-                  width={140}
+                  width={120}
                   tick={{ fontSize: 11 }}
                 />
-                <Tooltip />
-                <Bar dataKey="paradas" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                <Tooltip cursor={{ fill: "#f1f5f9" }} />
+                <Bar
+                  dataKey="paradas"
+                  name="Paradas"
+                  fill="#8b5cf6"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -143,22 +162,27 @@ export default function DashboardPage() {
             </span>
           </summary>
           <div className="p-6 pt-0">
-            <ResponsiveContainer width="100%" height={Math.max(300, provinciasPorBultos.length * 35)}>
+            <ResponsiveContainer width="100%" height={alturaBarras(provinciasPorBultos.length)}>
               <BarChart
                 data={provinciasPorBultos}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                margin={MARGEN}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
+                <XAxis {...EJE_X} />
                 <YAxis
                   type="category"
                   dataKey="provincia"
-                  width={140}
+                  width={120}
                   tick={{ fontSize: 11 }}
                 />
-                <Tooltip />
-                <Bar dataKey="bultos" fill="#10b981" radius={[0, 4, 4, 0]} />
+                <Tooltip cursor={{ fill: "#f1f5f9" }} />
+                <Bar
+                  dataKey="bultos"
+                  name="Bultos"
+                  fill="#10b981"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -177,22 +201,27 @@ export default function DashboardPage() {
             </span>
           </summary>
           <div className="p-6 pt-0">
-            <ResponsiveContainer width="100%" height={Math.max(300, provinciasPorHBLs.length * 35)}>
+            <ResponsiveContainer width="100%" height={alturaBarras(provinciasPorHBLs.length)}>
               <BarChart
                 data={provinciasPorHBLs}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                margin={MARGEN}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
+                <XAxis {...EJE_X} />
                 <YAxis
                   type="category"
                   dataKey="provincia"
-                  width={140}
+                  width={120}
                   tick={{ fontSize: 11 }}
                 />
-                <Tooltip />
-                <Bar dataKey="hbls" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                <Tooltip cursor={{ fill: "#f1f5f9" }} />
+                <Bar
+                  dataKey="hbls"
+                  name="HBLs"
+                  fill="#3b82f6"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

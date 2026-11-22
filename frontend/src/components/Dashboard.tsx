@@ -14,13 +14,31 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import type { LucideIcon } from "lucide-react";
 import { ChartPie, MapPin, Package, Route, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ParadasResponse, ParadaInfo } from "@/lib/api";
+import type { ParadasResponse } from "@/lib/api";
 
 interface Props {
   paradas: ParadasResponse;
 }
+
+// Alto de una barra por fila, con un área visible fija y desplazamiento
+// cuando hay más filas de las que caben en la tarjeta.
+const ALTO_FILA = 26;
+const ALTO_MIN = 220;
+const ALTO_VISIBLE = 380;
+
+const MARGEN = { top: 4, right: 16, left: 0, bottom: 4 };
+const EJE_X = {
+  type: "number" as const,
+  allowDecimals: false,
+  tick: { fontSize: 11 },
+  tickFormatter: (valor: number) => valor.toLocaleString("es"),
+};
+
+const truncar = (texto: string, max = 16) =>
+  texto.length > max ? `${texto.slice(0, max - 1)}…` : texto;
 
 export default function Dashboard({ paradas }: Props) {
   // ============================================================
@@ -55,10 +73,10 @@ export default function Dashboard({ paradas }: Props) {
       .slice(0, 10);
   }, [paradasPorMunicipio]);
 
-  // Municipios ordenados por bultos
-const municipiosPorBultos = useMemo(() => {
-  return [...paradasPorMunicipio].sort((a, b) => b.bultos - a.bultos);
-}, [paradasPorMunicipio]);
+    // Municipios ordenados por bultos
+  const municipiosPorBultos = useMemo(() => {
+    return [...paradasPorMunicipio].sort((a, b) => b.bultos - a.bultos);
+  }, [paradasPorMunicipio]);
 
   // Top 10 destinatarios por bultos
   const topDestinatarios = useMemo(() => {
@@ -130,7 +148,7 @@ const municipiosPorBultos = useMemo(() => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={distribucionEstados}
@@ -138,10 +156,9 @@ const municipiosPorBultos = useMemo(() => {
                   nameKey="estado"
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  innerRadius="52%"
+                  outerRadius="78%"
                   paddingAngle={2}
-                  label={(entry) => `${entry.estado}: ${entry.value}`}
                 >
                   {distribucionEstados.map((entry) => (
                     <Cell
@@ -151,136 +168,134 @@ const municipiosPorBultos = useMemo(() => {
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Legend
+                  verticalAlign="bottom"
+                  iconSize={9}
+                  wrapperStyle={{ fontSize: 12 }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Top 10 municipios por HBLs */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-slate-500" />
-              Top 10 municipios por HBLs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart
-                data={topMunicipios}
-                layout="vertical"
-                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="municipio"
-                  width={120}
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip />
-                <Bar dataKey="hbls" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <GraficoBarras
+          titulo="Top 10 municipios por HBLs"
+          icono={MapPin}
+          datos={topMunicipios}
+          categoria="municipio"
+          dataKey="hbls"
+          nombre="HBLs"
+          color="#3b82f6"
+        />
       </div>
 
       {/* Segunda fila: Paradas y Bultos por municipio */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Paradas por municipio */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Route className="w-4 h-4 text-slate-500" />
-              Paradas por municipio
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={Math.max(300, paradasPorMunicipio.length * 35)}>
-              <BarChart
-                data={paradasPorMunicipio}
-                layout="vertical"
-                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="municipio"
-                  width={120}
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip />
-                <Bar dataKey="paradas" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <GraficoBarras
+          titulo="Paradas por municipio"
+          icono={Route}
+          datos={paradasPorMunicipio}
+          categoria="municipio"
+          dataKey="paradas"
+          nombre="Paradas"
+          color="#8b5cf6"
+        />
 
-        {/* Bultos por municipio */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-slate-500" />
-              Bultos por municipio
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={Math.max(300, paradasPorMunicipio.length * 35)}>
-              <BarChart
-                data={municipiosPorBultos}
-                layout="vertical"
-                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="municipio"
-                  width={120}
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip />
-                <Bar dataKey="bultos" fill="#10b981" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <GraficoBarras
+          titulo="Bultos por municipio"
+          icono={Package}
+          datos={municipiosPorBultos}
+          categoria="municipio"
+          dataKey="bultos"
+          nombre="Bultos"
+          color="#10b981"
+        />
       </div>
 
       {/* Top 10 destinatarios */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-slate-500" />
-            Top 10 destinatarios por bultos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart
-              data={topDestinatarios}
-              layout="vertical"
-              margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-            >
+      <GraficoBarras
+        titulo="Top 10 destinatarios por bultos"
+        icono={Trophy}
+        datos={topDestinatarios}
+        categoria="destinatario"
+        dataKey="bultos"
+        nombre="Bultos"
+        color="#f59e0b"
+        anchoEje={150}
+        maxCategoria={20}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// COMPONENTE: Gráfico de barras horizontales
+// ============================================================
+function GraficoBarras({
+  titulo,
+  icono: Icono,
+  datos,
+  categoria,
+  dataKey,
+  nombre,
+  color,
+  anchoEje = 110,
+  maxCategoria = 16,
+}: {
+  titulo: string;
+  icono: LucideIcon;
+  datos: Record<string, string | number>[];
+  categoria: string;
+  dataKey: string;
+  nombre: string;
+  color: string;
+  anchoEje?: number;
+  maxCategoria?: number;
+}) {
+  const alto = Math.max(ALTO_MIN, datos.length * ALTO_FILA);
+  const conScroll = alto > ALTO_VISIBLE;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Icono className="w-4 h-4 text-slate-500" />
+          {titulo}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div
+          className={conScroll ? "overflow-y-auto pr-1" : undefined}
+          style={conScroll ? { maxHeight: ALTO_VISIBLE } : undefined}
+        >
+          <ResponsiveContainer width="100%" height={alto}>
+            <BarChart data={datos} layout="vertical" margin={MARGEN}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" />
+              <XAxis {...EJE_X} />
               <YAxis
                 type="category"
-                dataKey="destinatario"
-                width={180}
+                dataKey={categoria}
+                width={anchoEje}
                 tick={{ fontSize: 11 }}
+                tickFormatter={(valor: string) => truncar(valor, maxCategoria)}
               />
-              <Tooltip />
-              <Bar dataKey="bultos" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+              <Tooltip cursor={{ fill: "#f1f5f9" }} />
+              <Bar
+                dataKey={dataKey}
+                name={nombre}
+                fill={color}
+                radius={[0, 4, 4, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        {conScroll && (
+          <p className="mt-2 text-xs text-slate-500">
+            Desplázate para ver los {datos.length} municipios.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

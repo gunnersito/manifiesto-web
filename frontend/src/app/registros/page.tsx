@@ -505,6 +505,7 @@ function RegistrosContent() {
               <button
                 onClick={() => cambiarPagina(pagina - 1)}
                 disabled={pagina <= 1}
+                aria-label="Página anterior"
                 className="p-2 rounded hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -515,6 +516,7 @@ function RegistrosContent() {
               <button
                 onClick={() => cambiarPagina(pagina + 1)}
                 disabled={pagina >= datos.total_paginas}
+                aria-label="Página siguiente"
                 className="p-2 rounded hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-4 h-4" />

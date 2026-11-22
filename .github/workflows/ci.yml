@@ -136,7 +136,8 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000/api
+          # El proxy /api del frontend reenvía a esta URL.
+          API_URL: http://localhost:8000/api
       - name: Arrancar el frontend
         working-directory: frontend
         run: |

@@ -251,7 +251,10 @@ def test_el_login_deja_el_token_en_una_cookie_http_only(cliente):
         atributos = cookie.lower()
         assert "httponly" in atributos
         assert "secure" in atributos
-        assert "samesite=none" in atributos
+        # El frontend reenvía /api desde su propio origen, así que la cookie
+        # viaja same-origin y no necesita SameSite=None.
+        assert "samesite=lax" in atributos
+        assert "samesite=none" not in atributos
 
         assert "access_token" not in respuesta.json()
 

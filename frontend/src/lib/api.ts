@@ -1,11 +1,9 @@
 import axios from "axios";
 
-// URL del backend. Se configura con NEXT_PUBLIC_API_URL (en Vercel, en las
-// variables del proyecto) y, si no está definida, apunta al servicio en Render.
-// Se le quitan las barras finales para que no salgan rutas con //.
-export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "https://manifiesto-backend.onrender.com/api"
-).replace(/\/+$/, "");
+// Las peticiones van a /api del propio origen: next.config.ts reenvía esa ruta
+// a la API (variable API_URL). Al ser same-origin no hace falta CORS y la
+// cookie de sesión funciona con SameSite=Lax.
+export const API_URL = "/api";
 
 // 2. Creamos la instancia
 export const api = axios.create({

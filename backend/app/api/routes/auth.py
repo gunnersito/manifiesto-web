@@ -10,8 +10,8 @@ from app.core.database import get_db_connection, verificar_password
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
 # El JWT viaja en una cookie httpOnly: el JavaScript de la app no puede leerlo.
-# Como el frontend y la API están en dominios distintos, la cookie necesita
-# SameSite=None y Secure para que el navegador la envíe en cada petición.
+# El navegador solo habla con el frontend, que reenvía /api al backend, así que
+# la cookie llega por el mismo origen: SameSite=Lax y Secure, sin SameSite=None.
 COOKIE_TOKEN = "token"
 COOKIE_MAX_AGE = ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
@@ -21,7 +21,7 @@ def _opciones_cookie() -> dict:
         "key": COOKIE_TOKEN,
         "httponly": True,
         "secure": True,
-        "samesite": "none",
+        "samesite": "lax",
         "path": "/",
         "max_age": COOKIE_MAX_AGE,
     }
@@ -68,6 +68,6 @@ async def logout(response: Response):
         path="/",
         httponly=True,
         secure=True,
-        samesite="none",
+        samesite="lax",
     )
     return {"status": "success"}

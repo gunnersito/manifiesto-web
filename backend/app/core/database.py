@@ -474,7 +474,7 @@ def obtener_manifiesto(manifiesto_id: int) -> dict:
         "resumen": json.loads(row[7]) if row[7] else [],
     }
 
-def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 15, busqueda: str = "", estado: str = "", provincia: str = "") -> dict:
+def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 15, busqueda: str = "", estado: str = "", provincia: str = "", municipio: str = "", direccion: str = "") -> dict:
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -495,6 +495,12 @@ def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 1
             placeholders = " OR ".join(["provincia = %s OR municipio = %s" for _ in ubicaciones])
             where.append(f"({placeholders})")
             for u in ubicaciones: params.extend([u, u])
+    if municipio:
+        where.append("municipio = %s")
+        params.append(municipio)
+    if direccion:
+        where.append("direccion = %s")
+        params.append(direccion)
 
     where_sql = " AND ".join(where) if where else "1=1"
 

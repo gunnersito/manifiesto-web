@@ -44,6 +44,10 @@ HBL_ENRIQUECIDO = "PRUEBA-HISTORIAL-ENRIQUECIDO"
 USUARIO_PRUEBA = "prueba_historial"
 CLAVE_PRUEBA = "clave-solo-para-pruebas"
 
+# Manifiesto propio para probar el listado filtrado por parada.
+HASH_MANIFIESTO_PARADA = "prueba-hbls-por-parada"
+HBL_PARADA = ["PRUEBA-PARADA-A", "PRUEBA-PARADA-B", "PRUEBA-PARADA-OTRA"]
+
 
 @pytest.fixture(scope="module")
 def cliente():
@@ -66,6 +70,11 @@ def _borrar_datos_de_prueba():
             cursor.execute("DELETE FROM hbls WHERE hbl = ANY(%s)", (hbls,))
             cursor.execute(
                 "DELETE FROM usuarios WHERE username = %s", (USUARIO_PRUEBA,)
+            )
+            # Los HBLs del manifiesto de prueba caen con él (ON DELETE CASCADE).
+            cursor.execute(
+                "DELETE FROM manifiestos WHERE hash_archivo = %s",
+                (HASH_MANIFIESTO_PARADA,),
             )
         conn.commit()
     finally:
@@ -288,6 +297,74 @@ def test_el_enriquecido_solo_consulta_los_hbls_del_dataframe(cliente):
     )
     resultado = enriquecer_df_con_estados(df)
     assert resultado["Estado"].tolist() == ["Despachada", "Pendiente"]
+
+
+def _crear_manifiesto_con_paradas() -> int:
+    """Manifiesto de prueba con dos HBLs en una dirección y uno en otra."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM manifiestos WHERE hash_archivo = %s",
+                (HASH_MANIFIESTO_PARADA,),
+            )
+            cursor.execute(
+                """
+                INSERT INTO manifiestos (
+                    nombre_archivo, hash_archivo, fecha_subida, total_filas,
+                    total_provincias, total_paradas, total_bultos, resumen_json
+                ) VALUES ('prueba.xlsx', %s, '', 3, 1, 2, 3, '[]')
+                RETURNING id
+                """,
+                (HASH_MANIFIESTO_PARADA,),
+            )
+            manifiesto_id = cursor.fetchone()[0]
+            for hbl, direccion in [
+                (HBL_PARADA[0], "CALLE 1"),
+                (HBL_PARADA[1], "CALLE 1"),
+                (HBL_PARADA[2], "CALLE 2"),
+            ]:
+                cursor.execute(
+                    """
+                    INSERT INTO hbls (
+                        manifiesto_id, hbl, provincia, municipio, direccion,
+                        remitente, destinatario, telefono, contenido,
+                        bultos, peso, parada
+                    ) VALUES (%s, %s, 'PROVINCIA-PRUEBA', 'MUNICIPIO-PRUEBA', %s, '', '', '', '', 1, 1.5, 1)
+                    """,
+                    (manifiesto_id, hbl, direccion),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+    return manifiesto_id
+
+
+def test_los_hbls_se_piden_filtrados_por_parada(cliente):
+    """La ficha de una parada trae sus HBLs sin recorrer toda la provincia."""
+    _login(cliente, *ADMIN)
+    manifiesto_id = _crear_manifiesto_con_paradas()
+
+    respuesta = cliente.get(
+        f"/api/manifiestos/{manifiesto_id}/hbls",
+        params={
+            "municipio": "MUNICIPIO-PRUEBA",
+            "direccion": "CALLE 1",
+            "por_pagina": 200,
+        },
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 2
+    assert [h["hbl"] for h in cuerpo["hbls"]] == [HBL_PARADA[0], HBL_PARADA[1]]
+
+    # Sin dirección vienen el de la otra dirección y los dos de esta.
+    todas = cliente.get(
+        f"/api/manifiestos/{manifiesto_id}/hbls",
+        params={"municipio": "MUNICIPIO-PRUEBA"},
+    )
+    assert todas.status_code == 200, todas.text
+    assert todas.json()["total"] == 3
 
 
 def test_los_listados_tienen_tope_de_pagina_y_validan_el_estado(cliente):

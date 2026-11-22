@@ -399,7 +399,9 @@ export async function obtenerHBLsManifiesto(
   por_pagina: number = 15,
   busqueda: string = "",
   estado: string = "",
-  provincia: string = ""
+  provincia: string = "",
+  municipio: string = "",
+  direccion: string = ""
 ): Promise<HBLsPaginaResponse> {
   const params = new URLSearchParams({
     pagina: pagina.toString(),
@@ -407,9 +409,41 @@ export async function obtenerHBLsManifiesto(
     busqueda,
     estado,
     provincia,
+    municipio,
+    direccion,
   });
   const response = await api.get(`/manifiestos/${id}/hbls?${params.toString()}`);
   return response.data;
+}
+
+// El listado tiene un tope de 200 por página, así que se pide por páginas
+// hasta tener todos los HBLs que coinciden con el filtro.
+export async function obtenerTodosLosHBLsFiltrados(
+  id: number,
+  filtros: {
+    busqueda?: string;
+    estado?: string;
+    provincia?: string;
+    municipio?: string;
+    direccion?: string;
+  } = {}
+): Promise<HBLRegistro[]> {
+  const todos: HBLRegistro[] = [];
+  for (let pagina = 1; ; pagina++) {
+    const datos = await obtenerHBLsManifiesto(
+      id,
+      pagina,
+      200,
+      filtros.busqueda || "",
+      filtros.estado || "",
+      filtros.provincia || "",
+      filtros.municipio || "",
+      filtros.direccion || ""
+    );
+    todos.push(...datos.hbls);
+    if (pagina >= datos.total_paginas || datos.hbls.length === 0) break;
+  }
+  return todos;
 }
 
 export async function obtenerTodosLosHBLs(

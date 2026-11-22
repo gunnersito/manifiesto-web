@@ -400,9 +400,11 @@ async def hbls_registros_globales(
     busqueda: str = "",
     estado: str = "",
     provincia: str = "",
+    municipio: str = "",
+    direccion: str = "",
 ):
     validar_estado(estado)
-    return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia)
+    return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia, municipio=municipio, direccion=direccion)
 
 @router.get("/historial/{hbl}")
 async def historial_hbl(hbl: str, limite: int = 50):
@@ -418,9 +420,11 @@ async def hbls_endpoint_filtrado(
     busqueda: str = "",
     estado: str = "",
     provincia: str = "",
+    municipio: str = "",
+    direccion: str = "",
 ):
     validar_estado(estado)
-    return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia)
+    return obtener_hbls(manifiesto_id, pagina=pagina, por_pagina=por_pagina, busqueda=busqueda, estado=estado, provincia=provincia, municipio=municipio, direccion=direccion)
 
 @router.get("/{manifiesto_id}")
 async def obtener_endpoint(manifiesto_id: int):

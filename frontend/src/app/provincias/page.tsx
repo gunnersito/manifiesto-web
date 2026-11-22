@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import {
   exportarTodasProvinciasPorId,
-  obtenerHBLsManifiesto,
+  obtenerTodosLosHBLsFiltrados,
   obtenerProvinciaPorId,
   actualizarEstado,
   actualizarEstadosMasivos,
@@ -166,9 +166,9 @@ function ResumenProvincias({ manifiestoId, metadata, busquedaInicial = "", estad
         setParadasBuscadas(result.paradas);
         (metadata as any)._resumenFiltrado = null;
       } else if (busqueda || estado) {
-        const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, busqueda, estado, "");
+        const hbls = await obtenerTodosLosHBLsFiltrados(manifiestoId, { busqueda, estado });
         setParadasBuscadas(null);
-        (metadata as any)._resumenFiltrado = agruparHBLsPorProvincia(result.hbls);
+        (metadata as any)._resumenFiltrado = agruparHBLsPorProvincia(hbls);
       } else {
         setParadasBuscadas(null);
         (metadata as any)._resumenFiltrado = null;
@@ -594,9 +594,18 @@ function ParadaCard({ parada, manifiestoId, provincia, onUpdate }: { parada: Par
     if (hbls) return;
     setLoading(true);
     try {
-      const result = await obtenerHBLsManifiesto(manifiestoId, 1, 9999, "", "", provincia);
-      setHbls(result.hbls.filter((h) => h.municipio === parada.Municipio && h.direccion === parada["Dirección"]));
-    } catch (err) { console.error("Error al cargar HBLs:", err); } finally { setLoading(false); }
+      // Los HBLs se piden al backend ya filtrados por la parada; el listado
+      // solo devuelve 200 por página, así que se recorre hasta el final.
+      const result = await obtenerTodosLosHBLsFiltrados(manifiestoId, {
+        provincia,
+        municipio: parada.Municipio,
+        direccion: parada["Dirección"],
+      });
+      setHbls(result);
+    } catch (err: any) {
+      console.error("Error al cargar HBLs:", err);
+      toast.error(`No se pudieron cargar los HBLs: ${err.response?.data?.detail || err.message}`);
+    } finally { setLoading(false); }
   };
 
   const marcarTodasEntregadas = async () => {

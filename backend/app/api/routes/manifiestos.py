@@ -7,7 +7,6 @@ from fastapi.responses import Response
 from io import BytesIO
 import hashlib
 import logging
-import math
 
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form, Query
@@ -18,7 +17,6 @@ from app.api.routes.auth import COOKIE_TOKEN
 from app.core.config import COL_PROVINCIA, UMBRAL_SIMILITUD, COL_MUNICIPIO, COL_DIRECCION, COL_HBL, COL_BULTOS, ESTADOS
 from app.services.excel_parser import (
     cargar_excel,
-    listar_hojas,
     aplicar_mapeo_columnas,
     limpiar_manifiesto,
     validar_columnas_esenciales,
@@ -109,17 +107,6 @@ class EstadosMasivos(BaseModel):
 # ============================================================
 # CARGA DEL MANIFIESTO
 # ============================================================
-def _limpiar_nan(obj):
-    """Sustituye NaN/Inf por 0 para que la respuesta sea JSON válido."""
-    if isinstance(obj, dict):
-        return {k: _limpiar_nan(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_limpiar_nan(v) for v in obj]
-    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
-        return 0
-    return obj
-
-
 # Nombre de cada columna de la tabla `hbls` en el DataFrame que esperan los
 # servicios de paradas.
 _COLUMNAS_DESDE_BD = {
@@ -172,104 +159,10 @@ def _cargar_manifiesto(
 # ============================================================
 # ENDPOINTS
 # ============================================================
-@router.post("/hojas")
-async def obtener_hojas(file: UploadFile = File(...)):
-    contenido = await file.read()
-    try:
-        hojas = listar_hojas(contenido)
-        return {"filename": file.filename, "hojas": hojas}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error leyendo hojas: {str(e)}")
-
-@router.post("/upload")
-async def upload_manifiesto(
-    file: UploadFile = File(...),
-    hoja: Optional[str] = Form(None),
-    umbral: float = Form(UMBRAL_SIMILITUD),
-):
-    contenido = await file.read()
-    df, renames, filas_eliminadas = _cargar_manifiesto(contenido, hoja, umbral)
-    df = enriquecer_df_con_estados(df)
-
-    provincias = ordenar_provincias(df[COL_PROVINCIA].dropna().unique().tolist())
-    resumen_provincias = []
-    for prov in provincias:
-        df_p = df[df[COL_PROVINCIA] == prov]
-        resumen_provincias.append({
-            "provincia": prov,
-            "hbls": len(df_p),
-            "paradas": int(df_p["Paradas"].sum()),
-            "bultos": int(df_p["Bultos (Cant.)"].sum()),
-        })
-
-    preview = preparar_salida(df).head(20).fillna("").to_dict(orient="records")
-
-    return {
-        "status": "success",
-        "filename": file.filename,
-        "hoja": hoja if hoja and hoja != "string" else "primera hoja del archivo",
-        "total_filas": len(df),
-        "filas_eliminadas": filas_eliminadas,
-        "columnas_renombradas": renames,
-        "provincias": resumen_provincias,
-        "preview": preview,
-    }
-
-@router.post("/paradas/{provincia}")
-async def obtener_paradas(
-    provincia: str,
-    file: UploadFile = File(...),
-    hoja: Optional[str] = Form(None),
-    umbral: float = Form(UMBRAL_SIMILITUD),
-):
-    contenido = await file.read()
-    df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
-    df = enriquecer_df_con_estados(df)
-
-    df_prov = df[df[COL_PROVINCIA] == provincia]
-    if len(df_prov) == 0:
-        raise HTTPException(status_code=404, detail=f"Provincia '{provincia}' no encontrada")
-
-    resumen = resumen_paradas(df_prov)
-
-    return {
-        "provincia": provincia,
-        "total_paradas": int(df_prov["Paradas"].sum()),
-        "total_hbls": len(df_prov),
-        "paradas": resumen.fillna("").to_dict(orient="records"),
-    }
-
 @router.post("/marcar-estados")
 async def marcar_estados(data: EstadosMasivos, payload: dict = Depends(verificar_lector)):
     cantidad = guardar_estados_masivo(data.hbls, data.estado, usuario=payload.get("sub"))
     return {"status": "success", "hbls_actualizados": cantidad, "estado": data.estado}
-
-@router.post("/hbls-parada")
-async def obtener_hbls_parada(
-    file: UploadFile = File(...),
-    provincia: str = Form(...),
-    municipio: str = Form(...),
-    direccion: str = Form(...),
-    hoja: Optional[str] = Form(None),
-    umbral: float = Form(UMBRAL_SIMILITUD),
-):
-    contenido = await file.read()
-    df, _, _ = _cargar_manifiesto(contenido, hoja, umbral)
-    df = enriquecer_df_con_estados(df)
-
-    mask = ((df[COL_PROVINCIA] == provincia) & (df[COL_MUNICIPIO] == municipio) & (df[COL_DIRECCION] == direccion))
-    df_parada = df[mask].copy()
-
-    if len(df_parada) == 0:
-        raise HTTPException(status_code=404, detail="Parada no encontrada")
-
-    cols = [COL_HBL, COL_DIRECCION, COL_MUNICIPIO]
-    for c in ["Nombre y Apellidos del DESTINATARIO:", "Teléfono del DESTINATARIO", "Contenido del paquete (Descripción)", COL_BULTOS, "Peso (Kg)", "Estado"]:
-        if c in df_parada.columns: cols.append(c)
-
-    resultado = df_parada[cols].fillna("").to_dict(orient="records")
-
-    return {"provincia": provincia, "municipio": municipio, "direccion": direccion, "total_hbls": len(df_parada), "hbls": _limpiar_nan(resultado)}
 
 @router.post("/estado")
 async def actualizar_estado(data: EstadoUpdate, payload: dict = Depends(verificar_lector)):

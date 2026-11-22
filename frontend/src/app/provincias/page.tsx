@@ -344,7 +344,6 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
   const [estadoFiltro, setEstadoFiltro] = useState(estadoInicial);
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
   const [cargandoFiltro, setCargandoFiltro] = useState(false);
-  const [totalSinFiltro, setTotalSinFiltro] = useState(0);
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const filtrosAplicados = useRef<[string, string]>(["", ""]);
@@ -367,7 +366,6 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Error al cargar");
     } finally {
@@ -389,7 +387,6 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia, busqueda, estadoFiltro, ubicacionFiltro);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Error al filtrar");
     } finally {
@@ -430,7 +427,6 @@ function DetalleProvincia({ provincia, manifiestoId, metadata, busquedaInicial =
     try {
       const result = await obtenerProvinciaPorId(manifiestoId, provincia);
       setParadas(result);
-      setTotalSinFiltro(result.total_hbls_sin_filtro ?? result.total_hbls);
     } catch (err: any) {
       setError(err.message || "Error al limpiar");
     } finally {

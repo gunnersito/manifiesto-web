@@ -135,29 +135,6 @@ def cargar_excel(contenido: bytes, hoja: str = None) -> pd.DataFrame:
         except Exception as e2:
             raise ValueError(f"No se pudo leer el archivo. Error Excel: {e} | Error CSV: {e2}")
 
-def listar_hojas(contenido: bytes) -> list:
-    """Devuelve la lista de hojas del Excel con info básica."""
-    buffer = BytesIO(contenido)
-    excel = pd.ExcelFile(buffer)
-    info = []
-    for h in excel.sheet_names:
-        try:
-            df = pd.read_excel(buffer, sheet_name=h)
-            info.append({
-                "nombre": h,
-                "filas": len(df),
-                "columnas": len(df.columns),
-            })
-        except Exception as e:
-            info.append({
-                "nombre": h,
-                "filas": 0,
-                "columnas": 0,
-                "error": str(e),
-            })
-    return info
-
-
 # ============================================================
 # LIMPIEZA Y VALIDACIÓN
 # ============================================================

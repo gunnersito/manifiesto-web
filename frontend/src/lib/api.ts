@@ -17,24 +17,6 @@ export const api = axios.create({
 });
 
 // --- Tipos de datos que devuelve el backend ---
-export interface ProvinciaResumen {
-  provincia: string;
-  hbls: number;
-  paradas: number;
-  bultos: number;
-}
-
-export interface UploadResponse {
-  status: string;
-  filename: string;
-  hoja: string | null;
-  total_filas: number;
-  filas_eliminadas: number;
-  columnas_renombradas: Record<string, string>;
-  provincias: ProvinciaResumen[];
-  preview: Record<string, any>[];
-}
-
 // --- Funciones de la API ---
 export async function subirManifiesto(
     file: File,

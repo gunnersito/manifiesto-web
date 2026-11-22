@@ -43,6 +43,9 @@ from app.core.database import (
     obtener_manifiesto,
     obtener_hbls,
     obtener_hbls_de_provincia,
+    obtener_hbls_para_exportar,
+    hay_hbls_sin_datos_extra,
+    guardar_datos_extra,
     obtener_historial,
     eliminar_manifiesto,
     buscar_manifiesto_por_hash,
@@ -295,14 +298,38 @@ def descargar_archivo_supabase(manifiesto_id: int) -> bytes:
     except Exception:
         raise HTTPException(status_code=404, detail="Archivo original no encontrado en Supabase Storage")
 
-@router.post("/exportar-por-id/{manifiesto_id}/{provincia}")
-async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
+def _df_desde_archivo(manifiesto_id: int) -> pd.DataFrame:
+    """Lee el Excel original de Storage tal y como lo procesa la carga."""
     contenido = descargar_archivo_supabase(manifiesto_id)
     df = cargar_excel(contenido, None)
     df, _ = aplicar_mapeo_columnas(df)
     df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df)
-    df = enriquecer_df_con_estados(df)
+    return df
+
+def _completar_datos_extra(manifiesto_id: int) -> None:
+    """
+    Guarda en `hbls` las columnas del Excel sin campo propio (M3, carnet,
+    categoría...) en los manifiestos cargados antes de este cambio.
+
+    Se hace una sola vez por manifiesto: a partir de ahí la exportación ya no
+    necesita descargar el archivo original.
+    """
+    if not hay_hbls_sin_datos_extra(manifiesto_id):
+        return
+    guardar_datos_extra(manifiesto_id, _df_desde_archivo(manifiesto_id))
+
+def _df_exportacion(manifiesto_id: int) -> pd.DataFrame:
+    """Manifiesto entero listo para exportar, leído de la tabla `hbls`."""
+    _completar_datos_extra(manifiesto_id)
+    filas = obtener_hbls_para_exportar(manifiesto_id)
+    if not filas:
+        raise HTTPException(status_code=404, detail="Manifiesto no encontrado")
+    df = _df_desde_hbls(filas)
+    return marcar_paradas(enriquecer_df_con_estados(df))
+
+@router.post("/exportar-por-id/{manifiesto_id}/{provincia}")
+async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
+    df = _df_exportacion(manifiesto_id)
 
     df_prov = df[df[COL_PROVINCIA] == provincia]
     if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
@@ -314,12 +341,7 @@ async def exportar_provincia_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-ruta-por-id/{manifiesto_id}/{provincia}")
 async def exportar_ruta_por_id(manifiesto_id: int, provincia: str):
-    contenido = descargar_archivo_supabase(manifiesto_id)
-    df = cargar_excel(contenido, None)
-    df, _ = aplicar_mapeo_columnas(df)
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df)
-    df = enriquecer_df_con_estados(df)
+    df = _df_exportacion(manifiesto_id)
 
     df_prov = df[df[COL_PROVINCIA] == provincia]
     if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
@@ -331,12 +353,7 @@ async def exportar_ruta_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-municipios-por-id/{manifiesto_id}/{provincia}")
 async def exportar_municipios_por_id(manifiesto_id: int, provincia: str):
-    contenido = descargar_archivo_supabase(manifiesto_id)
-    df = cargar_excel(contenido, None)
-    df, _ = aplicar_mapeo_columnas(df)
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df)
-    df = enriquecer_df_con_estados(df)
+    df = _df_exportacion(manifiesto_id)
 
     df_prov = df[df[COL_PROVINCIA] == provincia]
     if len(df_prov) == 0: raise HTTPException(status_code=404, detail="Provincia no encontrada")
@@ -348,12 +365,7 @@ async def exportar_municipios_por_id(manifiesto_id: int, provincia: str):
 
 @router.post("/exportar-todas-por-id/{manifiesto_id}")
 async def exportar_todas_por_id(manifiesto_id: int):
-    contenido = descargar_archivo_supabase(manifiesto_id)
-    df = cargar_excel(contenido, None)
-    df, _ = aplicar_mapeo_columnas(df)
-    df, _ = limpiar_manifiesto(df)
-    df = marcar_paradas(df)
-    df = enriquecer_df_con_estados(df)
+    df = _df_exportacion(manifiesto_id)
 
     provincias = ordenar_provincias(df[COL_PROVINCIA].dropna().unique().tolist())
     excel_bytes = exportar_todas_provincias_excel(df, provincias)

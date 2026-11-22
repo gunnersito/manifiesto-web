@@ -8,6 +8,7 @@ También cubren el historial de estados: cada cambio guarda el usuario del token
 y repetir el mismo estado no añade filas.
 """
 import os
+from io import BytesIO
 
 # Se definen antes de importar la app: config.py y database.py leen el entorno.
 os.environ.setdefault("SECRET_KEY", "clave-solo-para-pruebas")
@@ -28,8 +29,10 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.core.config import COL_HBL  # noqa: E402
 from app.core.database import (  # noqa: E402
     get_db_connection,
+    hay_hbls_sin_datos_extra,
     obtener_estados_por_hbls,
 )
+from app.api.routes import manifiestos as rutas_manifiestos  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.estados_service import enriquecer_df_con_estados  # noqa: E402
 
@@ -299,8 +302,12 @@ def test_el_enriquecido_solo_consulta_los_hbls_del_dataframe(cliente):
     assert resultado["Estado"].tolist() == ["Despachada", "Pendiente"]
 
 
-def _crear_manifiesto_con_paradas() -> int:
-    """Manifiesto de prueba con dos HBLs en una dirección y uno en otra."""
+def _crear_manifiesto_con_paradas(datos_extra: str | None = "{}") -> int:
+    """Manifiesto de prueba con dos HBLs en una dirección y uno en otra.
+
+    Con `datos_extra=None` se simula un manifiesto cargado antes de que las
+    columnas extra (M3, carnet...) se guardaran en `hbls`.
+    """
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -329,10 +336,10 @@ def _crear_manifiesto_con_paradas() -> int:
                     INSERT INTO hbls (
                         manifiesto_id, hbl, provincia, municipio, direccion,
                         remitente, destinatario, telefono, contenido,
-                        bultos, peso, parada
-                    ) VALUES (%s, %s, 'PROVINCIA-PRUEBA', 'MUNICIPIO-PRUEBA', %s, '', '', '', '', 1, 1.5, 1)
+                        bultos, peso, parada, datos_extra
+                    ) VALUES (%s, %s, 'PROVINCIA-PRUEBA', 'MUNICIPIO-PRUEBA', %s, '', '', '', '', 1, 1.5, 1, %s)
                     """,
-                    (manifiesto_id, hbl, direccion),
+                    (manifiesto_id, hbl, direccion, datos_extra),
                 )
         conn.commit()
     finally:
@@ -398,6 +405,81 @@ def test_el_resumen_de_provincia_sale_de_la_tabla_hbls(cliente):
 
     ajeno = cliente.post(f"/api/manifiestos/{manifiesto_id}/provincia/OTRA-PROVINCIA")
     assert ajeno.status_code == 404, ajeno.text
+
+
+def test_las_exportaciones_salen_de_la_tabla_hbls(cliente):
+    """Las cuatro exportaciones se generan con las filas guardadas, sin Excel."""
+    _login(cliente, *ADMIN)
+    manifiesto_id = _crear_manifiesto_con_paradas(
+        datos_extra='{"M3": 1.0, "Categoría/Operación": "ENVIO"}'
+    )
+
+    respuestas = {}
+    for ruta in (
+        "exportar-por-id",
+        "exportar-ruta-por-id",
+        "exportar-municipios-por-id",
+    ):
+        respuesta = cliente.post(
+            f"/api/manifiestos/{ruta}/{manifiesto_id}/PROVINCIA-PRUEBA"
+        )
+        assert respuesta.status_code == 200, respuesta.text
+        assert respuesta.content[:2] == b"PK"
+        respuestas[ruta] = respuesta
+
+    detalle = pd.read_excel(
+        BytesIO(respuestas["exportar-por-id"].content), sheet_name="PROVINCIA-PRUEBA"
+    )
+    assert list(detalle["HBL Número"][:3]) == HBL_PARADA
+    # Las columnas del Excel sin campo propio en `hbls` viajan en la exportación.
+    assert list(detalle["M3"][:3]) == [1.0, 1.0, 1.0]
+    assert list(detalle["Categoría/Operación"][:3]) == ["ENVIO"] * 3
+
+    todas = cliente.post(f"/api/manifiestos/exportar-todas-por-id/{manifiesto_id}")
+    assert todas.status_code == 200, todas.text
+    hojas = pd.read_excel(BytesIO(todas.content), sheet_name=None)
+    assert "PROVINCIA-PRUEBA" in hojas
+    resumen = hojas["Resumen General"]
+    assert resumen["Total HBLs"].iloc[0] == 3
+    assert resumen["Total Paradas"].iloc[0] == 2
+
+
+def test_una_exportacion_rellena_los_extra_de_un_manifiesto_antiguo(cliente, monkeypatch):
+    """Un manifiesto sin columnas extra las recibe del Excel una sola vez."""
+    _login(cliente, *ADMIN)
+    manifiesto_id = _crear_manifiesto_con_paradas(datos_extra=None)
+
+    archivo = pd.DataFrame({
+        "HBL Número": HBL_PARADA,
+        "Bultos (Cant.)": [1, 1, 1],
+        "Peso (Kg)": [1.5, 1.5, 1.5],
+        "M3": [1.0, 1.0, 1.0],
+        "Categoría/Operación": ["ENVIO", "ENVIO", "ENVIO"],
+        "Provincia": ["PROVINCIA-PRUEBA"] * 3,
+        "Municipio": ["MUNICIPIO-PRUEBA"] * 3,
+        "Direccion del destinatario": ["CALLE 1", "CALLE 1", "CALLE 2"],
+    })
+    lecturas = []
+
+    def archivo_original(_manifiesto_id):
+        lecturas.append(_manifiesto_id)
+        return archivo
+
+    monkeypatch.setattr(rutas_manifiestos, "_df_desde_archivo", archivo_original)
+
+    url = f"/api/manifiestos/exportar-por-id/{manifiesto_id}/PROVINCIA-PRUEBA"
+    primera = cliente.post(url)
+    assert primera.status_code == 200, primera.text
+    assert len(lecturas) == 1
+    assert not hay_hbls_sin_datos_extra(manifiesto_id)
+
+    # La segunda exportación ya no descarga el archivo original.
+    segunda = cliente.post(url)
+    assert segunda.status_code == 200, segunda.text
+    assert len(lecturas) == 1
+
+    detalle = pd.read_excel(BytesIO(segunda.content), sheet_name=0)
+    assert list(detalle["M3"][:3]) == [1.0, 1.0, 1.0]
 
 
 def test_los_listados_tienen_tope_de_pagina_y_validan_el_estado(cliente):

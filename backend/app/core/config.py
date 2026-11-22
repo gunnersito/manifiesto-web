@@ -56,6 +56,17 @@ if _cors_entorno and not _cors_desde_entorno:
 
 CORS_ORIGINS = _cors_desde_entorno or CORS_ORIGINS_DEFAULT
 
+# --- Columnas del manifiesto sin campo propio en la tabla `hbls` ---
+# Las exportaciones escriben todo el detalle del Excel, así que estas columnas
+# se guardan tal cual (tipos incluidos) en `hbls.datos_extra`.
+COLUMNAS_EXTRA = [
+    "M3",
+    "DNI/PASAPORTE:",
+    "No. de Carnet de Identidad:",
+    "Correo electrónico",
+    "Categoría/Operación",
+]
+
 # --- Orden de columnas de salida ---
 ORDEN_COLUMNAS_SALIDA = [
     "HBL Número",

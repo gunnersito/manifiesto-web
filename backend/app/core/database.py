@@ -2,6 +2,7 @@
 Manejo de la base de datos PostgreSQL para Supabase.
 """
 import json
+import math
 import os
 import re
 import unicodedata
@@ -9,6 +10,8 @@ import bcrypt
 import psycopg2
 from psycopg2.extras import execute_batch
 from datetime import datetime
+
+from app.core.config import COLUMNAS_EXTRA, COL_HBL
 
 
 # ============================================================
@@ -31,6 +34,36 @@ def _escapar_regex(texto: str) -> str:
 def _escapar_like(texto: str) -> str:
     """Escapa los comodines de LIKE para buscar el texto tal cual."""
     return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# ============================================================
+# COLUMNAS EXTRA DEL MANIFIESTO
+# ============================================================
+def _valor_json(valor):
+    """Convierte un valor de pandas en algo que `json.dumps` pueda guardar."""
+    if valor is None:
+        return None
+    if hasattr(valor, "item"):
+        valor = valor.item()
+    if isinstance(valor, float) and math.isnan(valor):
+        return None
+    return valor
+
+
+def _datos_extra_json(row, columnas) -> str:
+    """
+    JSON de las columnas del Excel que no tienen campo propio en `hbls`.
+
+    Se guardan con su tipo original para que una exportación las escriba igual
+    que cuando se leía el Excel (los identificadores numéricos siguen siendo
+    números, no texto).
+    """
+    extra = {
+        col: _valor_json(row.get(col))
+        for col in COLUMNAS_EXTRA
+        if col in columnas
+    }
+    return json.dumps(extra, ensure_ascii=False)
 
 
 def _texto_normalizado(columna: str) -> str:
@@ -133,9 +166,17 @@ def init_db():
             bultos INTEGER,
             peso REAL,
             parada INTEGER,
-            estado TEXT
+            estado TEXT,
+            datos_extra TEXT
         )
     """)
+
+    # Manifiestos cargados antes de que las columnas del Excel sin campo propio
+    # (M3, carnet, categoría...) se guardaran en la tabla: la fila existe pero
+    # `datos_extra` es NULL hasta rellenarla con el archivo original.
+    cursor.execute(
+        "ALTER TABLE hbls ADD COLUMN IF NOT EXISTS datos_extra TEXT"
+    )
 
     # Índices para los filtros del listado y su paginación.
     cursor.execute(
@@ -425,13 +466,14 @@ def guardar_manifiesto(nombre_archivo: str, df, resumen: list, hash_archivo: str
             float(row.get(COL_PESO, 0) or 0),
             int(row.get(COL_PARADAS, 0) or 0),
             str(row.get("Estado", "Pendiente")),
+            _datos_extra_json(row, df.columns),
         ))
 
     execute_batch(cursor, """
         INSERT INTO hbls (manifiesto_id, hbl, provincia, municipio, direccion,
                           remitente, destinatario, telefono, contenido,
-                          bultos, peso, parada, estado)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                          bultos, peso, parada, estado, datos_extra)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, rows)
 
     conn.commit()
@@ -528,32 +570,107 @@ def obtener_hbls(manifiesto_id: int = None, pagina: int = 1, por_pagina: int = 1
     ]
     return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "total_paginas": (total + por_pagina - 1) // por_pagina, "hbls": hbls}
 
+def _filas_de_hbls(
+    manifiesto_id: int, provincia: str = None, con_datos_extra: bool = False
+) -> list[dict]:
+    """
+    Filas de un manifiesto en el orden en que se cargaron, opcionalmente solo
+    de una provincia y con las columnas extra del Excel ya mezcladas.
+    """
+    columnas = (
+        "hbl, provincia, municipio, direccion, remitente, destinatario, "
+        "telefono, contenido, bultos, peso, parada"
+    )
+    if con_datos_extra:
+        columnas += ", datos_extra"
+
+    where, params = ["manifiesto_id = %s"], [manifiesto_id]
+    if provincia is not None:
+        where.append("provincia = %s")
+        params.append(provincia)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {columnas} FROM hbls WHERE {' AND '.join(where)} ORDER BY id",
+                params,
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    filas = []
+    for r in rows:
+        fila = {
+            "hbl": r[0], "provincia": r[1], "municipio": r[2], "direccion": r[3],
+            "remitente": r[4], "destinatario": r[5], "telefono": r[6],
+            "contenido": r[7], "bultos": r[8], "peso": r[9], "parada": r[10],
+        }
+        if con_datos_extra:
+            fila.update(json.loads(r[11]) if r[11] else {})
+        filas.append(fila)
+    return filas
+
+
 def obtener_hbls_de_provincia(manifiesto_id: int, provincia: str) -> list[dict]:
     """
     Todas las filas de una provincia de un manifiesto, en el orden en que se
     cargaron. La vista de provincia calcula sus paradas con estas filas, en vez
     de descargar y volver a leer el Excel de Storage.
     """
+    return _filas_de_hbls(manifiesto_id, provincia)
+
+
+def obtener_hbls_para_exportar(manifiesto_id: int) -> list[dict]:
+    """Manifiesto entero con las columnas extra que necesita la exportación."""
+    return _filas_de_hbls(manifiesto_id, con_datos_extra=True)
+
+
+def hay_hbls_sin_datos_extra(manifiesto_id: int) -> bool:
+    """
+    True si al manifiesto le faltan las columnas extra por rellenar. Solo pasa
+    con los cargados antes de que se guardaran en la tabla.
+    """
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT hbl, provincia, municipio, direccion, remitente,
-                       destinatario, telefono, contenido, bultos, peso, parada
-                FROM hbls
-                WHERE manifiesto_id = %s AND provincia = %s
-                ORDER BY id
-            """, (manifiesto_id, provincia))
-            rows = cursor.fetchall()
+            cursor.execute(
+                "SELECT EXISTS (SELECT 1 FROM hbls WHERE manifiesto_id = %s "
+                "AND datos_extra IS NULL)",
+                (manifiesto_id,),
+            )
+            return cursor.fetchone()[0]
     finally:
         conn.close()
 
-    return [
-        {"hbl": r[0], "provincia": r[1], "municipio": r[2], "direccion": r[3],
-         "remitente": r[4], "destinatario": r[5], "telefono": r[6],
-         "contenido": r[7], "bultos": r[8], "peso": r[9], "parada": r[10]}
-        for r in rows
+
+def guardar_datos_extra(manifiesto_id: int, df) -> int:
+    """
+    Rellena las columnas extra de un manifiesto ya guardado, cruzando por HBL
+    con las filas del Excel original. Devuelve cuántas filas actualizó.
+    """
+    if not len(df):
+        return 0
+
+    filas = [
+        (_datos_extra_json(row, df.columns), manifiesto_id, str(row.get(COL_HBL, "")))
+        for _, row in df.iterrows()
     ]
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            execute_batch(
+                cursor,
+                "UPDATE hbls SET datos_extra = %s "
+                "WHERE manifiesto_id = %s AND hbl = %s",
+                filas,
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return len(filas)
 
 
 def eliminar_manifiesto(manifiesto_id: int) -> bool:

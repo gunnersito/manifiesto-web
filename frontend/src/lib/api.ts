@@ -393,6 +393,14 @@ export async function obtenerManifiesto(
   return response.data;
 }
 
+// La API rechaza más de 200 HBLs por página. Para traer un grupo entero hay
+// que recorrer las páginas, como hace obtenerTodosLosHBLsFiltrados.
+const MAX_POR_PAGINA = 200;
+
+function limitarPorPagina(porPagina: number): number {
+  return Math.min(Math.max(1, Math.trunc(porPagina) || 1), MAX_POR_PAGINA);
+}
+
 export async function obtenerHBLsManifiesto(
   id: number,
   pagina: number = 1,
@@ -405,7 +413,7 @@ export async function obtenerHBLsManifiesto(
 ): Promise<HBLsPaginaResponse> {
   const params = new URLSearchParams({
     pagina: pagina.toString(),
-    por_pagina: por_pagina.toString(),
+    por_pagina: limitarPorPagina(por_pagina).toString(),
     busqueda,
     estado,
     provincia,
@@ -456,7 +464,7 @@ export async function obtenerTodosLosHBLs(
 ): Promise<HBLsPaginaResponse> {
   const params = new URLSearchParams({
     pagina: pagina.toString(),
-    por_pagina: por_pagina.toString(),
+    por_pagina: limitarPorPagina(por_pagina).toString(),
     manifiesto_id: (manifiestoId || 0).toString(), // 👈 Siempre enviamos un número
   });
 

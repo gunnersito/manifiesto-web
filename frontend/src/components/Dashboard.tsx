@@ -37,8 +37,14 @@ const EJE_X = {
   tickFormatter: (valor: number) => valor.toLocaleString("es"),
 };
 
-const truncar = (texto: string, max = 16) =>
-  texto.length > max ? `${texto.slice(0, max - 1)}…` : texto;
+// Recorta por palabras para no partir un nombre a la mitad: "SAN MIGUEL DEL
+// PADRÓN" queda en "SAN MIGUEL DEL…", no en "SAN MIGUELDEL …".
+const truncar = (texto: string, max = 16) => {
+  if (texto.length <= max) return texto;
+  const corte = texto.slice(0, max - 1);
+  const espacio = corte.lastIndexOf(" ");
+  return `${(espacio > 4 ? corte.slice(0, espacio) : corte).trimEnd()}…`;
+};
 
 export default function Dashboard({ paradas }: Props) {
   // ============================================================
@@ -239,7 +245,7 @@ function GraficoBarras({
   dataKey,
   nombre,
   color,
-  anchoEje = 110,
+  anchoEje = 124,
   maxCategoria = 16,
 }: {
   titulo: string;
@@ -254,6 +260,26 @@ function GraficoBarras({
 }) {
   const alto = Math.max(ALTO_MIN, datos.length * ALTO_FILA);
   const conScroll = alto > ALTO_VISIBLE;
+
+  // Recharts parte el texto del eje en varias líneas cuando no cabe en el
+  // ancho del eje. Aquí se dibuja una sola línea ya recortada, así todas las
+  // barras quedan alineadas y la fila conserva su alto.
+  const etiqueta = ({ x, y, payload }: {
+    x?: number;
+    y?: number;
+    payload?: { value?: string };
+  }) => (
+    <text
+      x={x}
+      y={y}
+      dy={3}
+      textAnchor="end"
+      fontSize={11}
+      fill="#64748b"
+    >
+      {truncar(String(payload?.value ?? ""), maxCategoria)}
+    </text>
+  );
 
   return (
     <Card>
@@ -276,8 +302,8 @@ function GraficoBarras({
                 type="category"
                 dataKey={categoria}
                 width={anchoEje}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(valor: string) => truncar(valor, maxCategoria)}
+                interval={0}
+                tick={etiqueta}
               />
               <Tooltip cursor={{ fill: "#f1f5f9" }} />
               <Bar

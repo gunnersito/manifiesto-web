@@ -279,3 +279,85 @@ def exportar_por_municipios_excel(df_prov: pd.DataFrame) -> bytes:
 
     output.seek(0)
     return output.getvalue()
+
+# ============================================================
+# EXPORTAR LA RUTA ORDENADA DE UN REPARTIDOR
+# ============================================================
+def _agregar_totales_ruta(hoja, ruta: dict) -> None:
+    """Pie con el resumen de la ruta y el aviso de cómo se calculó."""
+    fila = hoja.max_row + 2
+    resumen = [
+        ("REPARTIDOR:", ruta["repartidor"]),
+        ("PROVINCIA:", ruta["provincia"]),
+        ("TOTAL PARADAS:", ruta["total_paradas"]),
+        ("TOTAL BULTOS:", ruta["total_bultos"]),
+        ("TOTAL PESO (KG):", ruta["total_peso"]),
+        ("DISTANCIA ESTIMADA (KM):", ruta["distancia_km"]),
+    ]
+    if ruta.get("aproximadas"):
+        resumen.append(("PARADAS CON UBICACIÓN APROXIMADA:", ruta["aproximadas"]))
+    if ruta.get("sin_ubicar"):
+        resumen.append(("PARADAS SIN UBICAR:", ruta["sin_ubicar"]))
+
+    for indice, (etiqueta, valor) in enumerate(resumen):
+        hoja.cell(row=fila + indice, column=1, value=etiqueta).font = Font(bold=True)
+        hoja.cell(row=fila + indice, column=2, value=valor)
+
+    nota = fila + len(resumen) + 1
+    celda = hoja.cell(
+        row=nota,
+        column=1,
+        value=(
+            "Orden por cercanía desde la cabecera provincial, con distancia "
+            "estimada por carretera. Los kilómetros son acumulados."
+        ),
+    )
+    celda.font = Font(italic=True, color="595959")
+
+
+def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
+    """
+    Excel de la ruta de un repartidor, en el mismo orden que la pantalla.
+
+    Columnas: Parada | Municipio | Dirección | Destinatario | Teléfono | HBLs |
+    Bultos | Peso (Kg) | Estado | Km | Ubicación
+    """
+    etiquetas_precision = {
+        "direccion": "Exacta",
+        "municipio": "Aproximada",
+        None: "Sin ubicar",
+    }
+
+    filas = [
+        {
+            "Parada": parada["orden"],
+            "Municipio": parada["municipio"],
+            "Dirección": parada["direccion"],
+            "Destinatario": parada["destinatario"],
+            "Teléfono": parada["telefono"],
+            "HBLs": ", ".join(parada["hbls"]),
+            "Bultos": parada["bultos"],
+            "Peso (Kg)": round(parada["peso"], 1),
+            "Estado": parada["estado"],
+            "Km": parada["tramo_km"] if parada["tramo_km"] is not None else "",
+            "Ubicación": etiquetas_precision.get(parada["precision"], "Sin ubicar"),
+        }
+        for parada in ruta["paradas"]
+    ]
+
+    columnas = [
+        "Parada", "Municipio", "Dirección", "Destinatario", "Teléfono",
+        "HBLs", "Bultos", "Peso (Kg)", "Estado", "Km", "Ubicación",
+    ]
+    tabla = pd.DataFrame(filas, columns=columnas)
+
+    output = BytesIO()
+    nombre_hoja = f"Ruta {ruta['repartidor']}"[:31]
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        tabla.to_excel(writer, sheet_name=nombre_hoja, index=False)
+        _formatear_hoja(writer, nombre_hoja)
+        _agregar_totales_ruta(writer.book[nombre_hoja], ruta)
+
+    output.seek(0)
+    return output.getvalue()

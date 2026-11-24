@@ -9,10 +9,11 @@ Las direcciones son texto libre y no todas se pueden ubicar, así que la
 precisión se devuelve junto a cada parada: "direccion" (exacta), "municipio"
 (aproximada) o ninguna (sin ubicar).
 """
+import re
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from app.api.routes.manifiestos import verificar_admin, verificar_lector
@@ -34,6 +35,7 @@ from app.core.database import (
     obtener_hbls_de_provincia,
 )
 from app.services.estados_service import enriquecer_df_con_estados
+from app.services.excel_exporter import exportar_ruta_repartidor_excel
 from app.services.geocoding_service import (
     GeocodificacionError,
     geocodificar_paradas,
@@ -259,19 +261,16 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
 # ============================================================
 # RUTA DE UN REPARTIDOR
 # ============================================================
-@router.get("/{manifiesto_id}/repartidor/{nombre}")
-def ruta_de_repartidor(
-    manifiesto_id: int,
-    nombre: str,
-    provincia: str = Query(...),
-    solo_pendientes: bool = Query(True),
-):
+def _ruta_calculada(
+    manifiesto_id: int, nombre: str, provincia: str, solo_pendientes: bool
+) -> dict:
     """
     Paradas del repartidor ordenadas de la más cercana a la siguiente.
 
     La ruta arranca en la cabecera de la provincia (geocodificada como
     "Provincia, Cuba") y termina en la última entrega: es un recorrido abierto,
-    no un ida y vuelta al almacén.
+    no un ida y vuelta al almacén. La usan la pantalla y el Excel, para que la
+    hoja salga en el mismo orden.
     """
     paradas = _paradas_de_provincia(manifiesto_id, provincia)
     asignaciones = obtener_asignaciones(manifiesto_id, provincia)
@@ -321,6 +320,38 @@ def ruta_de_repartidor(
         "aproximadas": sum(1 for p in ordenadas if p["precision"] == "municipio"),
         "mensaje": None,
     }
+
+
+@router.get("/{manifiesto_id}/repartidor/{nombre}")
+def ruta_de_repartidor(
+    manifiesto_id: int,
+    nombre: str,
+    provincia: str = Query(...),
+    solo_pendientes: bool = Query(True),
+):
+    """Ruta del repartidor con sus paradas ya ordenadas."""
+    return _ruta_calculada(manifiesto_id, nombre, provincia, solo_pendientes)
+
+
+@router.get("/{manifiesto_id}/repartidor/{nombre}/excel")
+def exportar_ruta_de_repartidor(
+    manifiesto_id: int,
+    nombre: str,
+    provincia: str = Query(...),
+    solo_pendientes: bool = Query(True),
+):
+    """Descarga la ruta en Excel, en el mismo orden que la pantalla."""
+    ruta = _ruta_calculada(manifiesto_id, nombre, provincia, solo_pendientes)
+    excel = exportar_ruta_repartidor_excel(ruta)
+
+    partes = [re.sub(r"[^A-Za-z0-9_-]+", "_", texto).strip("_") for texto in (nombre, provincia)]
+    archivo = "ruta_" + "_".join(parte for parte in partes if parte) + ".xlsx"
+
+    return Response(
+        content=excel,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{archivo}"'},
+    )
 
 
 # ============================================================

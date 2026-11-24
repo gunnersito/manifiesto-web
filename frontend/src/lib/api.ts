@@ -603,3 +603,33 @@ export async function asignarRepartidor(
     repartidor,
   });
 }
+
+
+// Descarga la ruta de un repartidor en Excel, en el mismo orden que la pantalla.
+export async function descargarRutaRepartidorExcel(
+  manifiestoId: number,
+  nombre: string,
+  provincia: string,
+  soloPendientes: boolean = true
+): Promise<void> {
+  const params = new URLSearchParams({
+    provincia,
+    solo_pendientes: String(soloPendientes),
+  });
+  const response = await api.get(
+    `/rutas/${manifiestoId}/repartidor/${encodeURIComponent(nombre)}/excel?${params.toString()}`,
+    { responseType: "blob", timeout: 120000 }
+  );
+
+  const blob = new Blob([response.data], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(blob);
+  link.download = `ruta_${nombre}_${provincia}.xlsx`.replace(/[^\w.\-]+/g, "_");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(link.href);
+}

@@ -5,7 +5,10 @@ Solo tocan funciones puras (distancias y ordenación), así que no necesitan
 PostgreSQL ni el servicio de mapas: lo que se comprueba es que la ruta empieza
 por lo más cercano, mejora con 2-opt y deja al final lo que no se pudo ubicar.
 """
+import io
 import os
+
+import pandas as pd
 
 # config.py exige SECRET_KEY al importarse, igual que en test_api.py.
 os.environ.setdefault("SECRET_KEY", "clave-solo-para-pruebas")
@@ -15,6 +18,7 @@ os.environ.setdefault(
 os.environ.setdefault("SUPABASE_URL", "https://proyecto-de-pruebas.supabase.co")
 os.environ.setdefault("SUPABASE_KEY", "clave-solo-para-pruebas")
 
+from app.services.excel_exporter import exportar_ruta_repartidor_excel  # noqa: E402
 from app.services.rutas_service import (  # noqa: E402
     FACTOR_CARRETERA,
     distancia_km,
@@ -93,3 +97,61 @@ def test_sin_coordenadas_no_se_inventa_distancia():
 
     assert [p["nombre"] for p in resultado["orden"]] == ["a", "b"]
     assert resultado["distancia_km"] == 0.0
+
+
+def test_el_excel_de_la_ruta_respeta_el_orden_de_la_pantalla():
+    # La hoja tiene que salir igual que la pantalla: mismo orden, mismas
+    # columnas y los kilómetros acumulados de cada parada.
+    ruta = {
+        "repartidor": "Luis",
+        "provincia": "PINAR DEL RIO",
+        "paradas": [
+            {
+                "orden": 1,
+                "municipio": "Consolación del Sur",
+                "direccion": "Calle 30 #1503",
+                "destinatario": "Ana",
+                "telefono": "5555",
+                "hbls": ["A-1", "A-2"],
+                "bultos": 2,
+                "peso": 5.0,
+                "estado": "Pendiente",
+                "tramo_km": 18.4,
+                "precision": "direccion",
+            },
+            {
+                "orden": 2,
+                "municipio": "Pinar del Río",
+                "direccion": "Calle Martí 120",
+                "destinatario": "Beto",
+                "telefono": "",
+                "hbls": ["B-1"],
+                "bultos": 1,
+                "peso": 2.5,
+                "estado": "Mixto",
+                "tramo_km": None,
+                "precision": None,
+            },
+        ],
+        "distancia_km": 18.4,
+        "total_paradas": 2,
+        "total_bultos": 3,
+        "total_peso": 7.5,
+        "aproximadas": 0,
+        "sin_ubicar": 1,
+    }
+
+    excel = exportar_ruta_repartidor_excel(ruta)
+    tabla = pd.read_excel(io.BytesIO(excel))
+
+    assert list(tabla.columns) == [
+        "Parada", "Municipio", "Dirección", "Destinatario", "Teléfono", "HBLs",
+        "Bultos", "Peso (Kg)", "Estado", "Km", "Ubicación",
+    ]
+    assert list(tabla["Parada"].head(2)) == [1, 2]
+    assert list(tabla["Dirección"].head(2)) == ["Calle 30 #1503", "Calle Martí 120"]
+    kms = list(tabla["Km"].head(2))
+    assert kms[0] == 18.4
+    # Una parada sin ubicar no lleva kilómetros: la celda queda vacía.
+    assert pd.isna(kms[1])
+    assert list(tabla["Ubicación"].head(2)) == ["Exacta", "Sin ubicar"]

@@ -6,6 +6,7 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Download,
   Loader2,
   MapPin,
   Package,
@@ -21,6 +22,7 @@ import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 import {
   asignarRepartidor,
   crearRepartidor,
+  descargarRutaRepartidorExcel,
   eliminarRepartidor,
   obtenerRepartidores,
   obtenerResumenRutas,
@@ -59,6 +61,7 @@ export default function RutasPage() {
   const [soloPendientes, setSoloPendientes] = useState(true);
   const [geocodificando, setGeocodificando] = useState(false);
   const [progreso, setProgreso] = useState<ProgresoGeocodificacion | null>(null);
+  const [exportandoRuta, setExportandoRuta] = useState(false);
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
@@ -200,6 +203,23 @@ export default function RutasPage() {
       );
     } finally {
       setGeocodificando(false);
+    }
+  };
+
+  const exportarRuta = async () => {
+    if (!manifiestoId || !repartidorSel) return;
+    setExportandoRuta(true);
+    try {
+      await descargarRutaRepartidorExcel(
+        manifiestoId,
+        repartidorSel,
+        provincia,
+        soloPendientes
+      );
+    } catch {
+      toast.error("No se pudo exportar la ruta");
+    } finally {
+      setExportandoRuta(false);
     }
   };
 
@@ -438,21 +458,38 @@ export default function RutasPage() {
                       Empieza en la cabecera de {provincia} y encadena las paradas más cercanas.
                     </p>
                   </div>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={prepararCoordenadasDeProvincia}
-                      disabled={geocodificando}
-                      className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
-                    >
-                      {geocodificando ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <MapPin className="h-4 w-4" />
-                      )}
-                      {geocodificando ? "Ubicando direcciones..." : "Preparar coordenadas"}
-                    </button>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {ruta && ruta.paradas.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={exportarRuta}
+                        disabled={exportandoRuta}
+                        className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+                      >
+                        {exportandoRuta ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                        Exportar a Excel
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={prepararCoordenadasDeProvincia}
+                        disabled={geocodificando}
+                        className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {geocodificando ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <MapPin className="h-4 w-4" />
+                        )}
+                        {geocodificando ? "Ubicando direcciones..." : "Preparar coordenadas"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {(pendientesGeocodificar > 0 || (resumen.fallidas ?? 0) > 0) && (

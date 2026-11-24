@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle, Loader2, Upload } from "lucide-react";
 import { subirManifiesto } from "@/lib/api";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { Modal } from "@/components/ui/modal";
 import { LoadingModal } from "@/components/ui/loading-modal";
+import { ComparadorManifiestos } from "@/components/ComparadorManifiestos";
 import { ZonaArchivo } from "@/components/ZonaArchivo";
 import Cookies from "js-cookie";
 
@@ -103,12 +103,8 @@ export default function Home() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-slate-500">
-          Para restar un manifiesto de ventas al general, usa el comparador del{" "}
-          <Link href="/dashboard" className="font-medium text-primary hover:underline">
-            Dashboard
-          </Link>.
-        </p>
+        {/* Segunda tarjeta: restar el manifiesto de ventas al general */}
+        <ComparadorManifiestos />
       </div>
 
       {/* MODAL DE NOTIFICACIÓN GLOBAL */}

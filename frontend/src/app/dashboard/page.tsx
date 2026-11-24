@@ -22,7 +22,6 @@ import {
   Upload,
 } from "lucide-react";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
-import { ComparadorManifiestos } from "@/components/ComparadorManifiestos";
 
 // Alto por fila, con topes para que los gráficos no crezcan sin medida
 const ALTO_MIN = 220;
@@ -62,7 +61,6 @@ export default function DashboardPage() {
               Ir a Subir
             </Link>
           </div>
-          <ComparadorManifiestos />
         </div>
       </main>
     );
@@ -266,9 +264,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </details>
-
-        {/* Comparar manifiestos */}
-        <ComparadorManifiestos />
       </div>
     </main>
   );

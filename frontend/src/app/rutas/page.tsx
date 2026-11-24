@@ -10,17 +10,22 @@ import {
   Loader2,
   MapPin,
   Package,
+  Pencil,
   Phone,
   Plus,
   Route,
+  Search,
   Trash2,
   Truck,
   Upload,
 } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 import {
   asignarRepartidor,
+  buscarUbicacionParada,
+  corregirUbicacionParada,
   crearRepartidor,
   descargarRutaRepartidorExcel,
   eliminarRepartidor,
@@ -28,6 +33,8 @@ import {
   obtenerResumenRutas,
   obtenerRutaRepartidor,
   prepararCoordenadas,
+  quitarCorreccionParada,
+  type ParadaRuta,
   type ProgresoGeocodificacion,
   type ResumenRutas,
   type RutaRepartidor,
@@ -62,6 +69,15 @@ export default function RutasPage() {
   const [geocodificando, setGeocodificando] = useState(false);
   const [progreso, setProgreso] = useState<ProgresoGeocodificacion | null>(null);
   const [exportandoRuta, setExportandoRuta] = useState(false);
+  const [correccion, setCorreccion] = useState<{
+    parada: ParadaRuta;
+    direccion: string;
+    lat: string;
+    lon: string;
+    corregida: boolean;
+  } | null>(null);
+  const [guardandoCorreccion, setGuardandoCorreccion] = useState(false);
+  const [buscandoCoordenadas, setBuscandoCoordenadas] = useState(false);
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
@@ -220,6 +236,99 @@ export default function RutasPage() {
       toast.error("No se pudo exportar la ruta");
     } finally {
       setExportandoRuta(false);
+    }
+  };
+
+  const abrirCorreccion = (parada: ParadaRuta) => {
+    setCorreccion({
+      parada,
+      direccion: parada.direccion,
+      lat: parada.lat != null ? String(parada.lat) : "",
+      lon: parada.lon != null ? String(parada.lon) : "",
+      corregida: parada.precision === "manual",
+    });
+  };
+
+  const buscarEnMapa = async () => {
+    if (!correccion) return;
+    setBuscandoCoordenadas(true);
+    try {
+      const { lat, lon } = await buscarUbicacionParada(
+        correccion.direccion,
+        correccion.parada.municipio,
+        provincia
+      );
+      if (lat == null || lon == null) {
+        toast.error(
+          "El mapa no encontró esa dirección. Puedes escribir las coordenadas a mano."
+        );
+        return;
+      }
+      setCorreccion((actual) =>
+        actual ? { ...actual, lat: String(lat), lon: String(lon) } : actual
+      );
+      toast.success("Coordenadas encontradas");
+    } catch {
+      toast.error("No se pudo consultar el mapa");
+    } finally {
+      setBuscandoCoordenadas(false);
+    }
+  };
+
+  const guardarCorreccion = async () => {
+    if (!correccion) return;
+    const lat = Number(correccion.lat.replace(",", "."));
+    const lon = Number(correccion.lon.replace(",", "."));
+    if (
+      !correccion.lat.trim() ||
+      !correccion.lon.trim() ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon)
+    ) {
+      toast.error("Escribe la latitud y la longitud de la parada");
+      return;
+    }
+
+    setGuardandoCorreccion(true);
+    try {
+      await corregirUbicacionParada({
+        provincia,
+        municipio: correccion.parada.municipio,
+        direccion: correccion.parada.direccion_original,
+        direccion_corregida: correccion.direccion.trim() || undefined,
+        lat,
+        lon,
+      });
+      toast.success("Ubicación corregida");
+      setCorreccion(null);
+      await cargarResumen();
+      setVersionRuta((v) => v + 1);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.detail || "No se pudo guardar la corrección"
+      );
+    } finally {
+      setGuardandoCorreccion(false);
+    }
+  };
+
+  const descartarCorreccion = async () => {
+    if (!correccion) return;
+    setGuardandoCorreccion(true);
+    try {
+      await quitarCorreccionParada(
+        provincia,
+        correccion.parada.municipio,
+        correccion.parada.direccion_original
+      );
+      toast.success("Corrección eliminada");
+      setCorreccion(null);
+      await cargarResumen();
+      setVersionRuta((v) => v + 1);
+    } catch {
+      toast.error("No se pudo quitar la corrección");
+    } finally {
+      setGuardandoCorreccion(false);
     }
   };
 
@@ -534,6 +643,11 @@ export default function RutasPage() {
                         {paradasSinUbicar} sin ubicar
                       </span>
                     )}
+                    {resumen.corregidas > 0 && (
+                      <span className="rounded-full bg-sky-100 px-3 py-1 font-medium text-sky-800">
+                        {resumen.corregidas} corregida(s) a mano
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -606,6 +720,11 @@ export default function RutasPage() {
                                 Ubicación aproximada
                               </span>
                             )}
+                            {parada.precision === "manual" && (
+                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-800">
+                                Corregida a mano
+                              </span>
+                            )}
                             {parada.precision === null && (
                               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
                                 Sin coordenadas
@@ -613,6 +732,17 @@ export default function RutasPage() {
                             )}
                           </div>
                         </div>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => abrirCorreccion(parada)}
+                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary"
+                            aria-label={`Corregir ubicación de ${parada.direccion_original}`}
+                            title="Corregir ubicación"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ol>
@@ -622,6 +752,136 @@ export default function RutasPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={correccion !== null}
+        onClose={() => setCorreccion(null)}
+        title="Corregir ubicación"
+      >
+        {correccion && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+              <div className="font-medium text-slate-900">
+                {correccion.parada.municipio}
+              </div>
+              <div>{correccion.parada.direccion_original}</div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="correccion-direccion"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
+                Dirección
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="correccion-direccion"
+                  value={correccion.direccion}
+                  onChange={(evento) =>
+                    setCorreccion((actual) =>
+                      actual ? { ...actual, direccion: evento.target.value } : actual
+                    )
+                  }
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={buscarEnMapa}
+                  disabled={buscandoCoordenadas}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {buscandoCoordenadas ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Buscar
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Se busca en OpenStreetMap usando el municipio y la provincia.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="correccion-lat"
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                  Latitud
+                </label>
+                <input
+                  id="correccion-lat"
+                  value={correccion.lat}
+                  onChange={(evento) =>
+                    setCorreccion((actual) =>
+                      actual ? { ...actual, lat: evento.target.value } : actual
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="22.4136"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="correccion-lon"
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                  Longitud
+                </label>
+                <input
+                  id="correccion-lon"
+                  value={correccion.lon}
+                  onChange={(evento) =>
+                    setCorreccion((actual) =>
+                      actual ? { ...actual, lon: evento.target.value } : actual
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="-83.6880"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+              {correccion.corregida ? (
+                <button
+                  type="button"
+                  onClick={descartarCorreccion}
+                  disabled={guardandoCorreccion}
+                  className="text-xs font-medium text-red-600 hover:underline disabled:opacity-60"
+                >
+                  Quitar corrección
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCorreccion(null)}
+                  className="rounded-lg px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={guardarCorreccion}
+                  disabled={guardandoCorreccion}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {guardandoCorreccion && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </main>
   );
 }

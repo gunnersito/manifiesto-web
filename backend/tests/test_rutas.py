@@ -155,3 +155,35 @@ def test_el_excel_de_la_ruta_respeta_el_orden_de_la_pantalla():
     # Una parada sin ubicar no lleva kilómetros: la celda queda vacía.
     assert pd.isna(kms[1])
     assert list(tabla["Ubicación"].head(2)) == ["Exacta", "Sin ubicar"]
+
+
+def test_la_correccion_a_mano_manda_sobre_la_cache():
+    from app.services.rutas_service import aplicar_ubicacion
+
+    parada = {"direccion": "Calle del manifiesto", "municipio": "Pinar del Río"}
+
+    aplicar_ubicacion(
+        parada,
+        {"lat": 22.0, "lon": -83.0, "precision": "municipio"},
+        {"direccion": "Calle corregida 123", "lat": 22.41, "lon": -83.69},
+    )
+
+    assert parada["lat"] == 22.41
+    assert parada["lon"] == -83.69
+    assert parada["precision"] == "manual"
+    assert parada["direccion"] == "Calle corregida 123"
+
+
+def test_sin_correccion_manda_la_cache_y_sin_nada_queda_sin_ubicar():
+    from app.services.rutas_service import aplicar_ubicacion
+
+    con_cache = {"direccion": "Calle 1", "municipio": "Pinar del Río"}
+    aplicar_ubicacion(con_cache, {"lat": 22.0, "lon": -83.0, "precision": "municipio"}, None)
+    assert (con_cache["lat"], con_cache["lon"]) == (22.0, -83.0)
+    assert con_cache["precision"] == "municipio"
+    assert con_cache["direccion"] == "Calle 1"
+
+    sin_nada = {"direccion": "Calle 2", "municipio": "Pinar del Río"}
+    aplicar_ubicacion(sin_nada, None, None)
+    assert sin_nada["lat"] is None
+    assert sin_nada["precision"] is None

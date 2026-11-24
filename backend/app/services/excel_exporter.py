@@ -325,6 +325,7 @@ def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
     etiquetas_precision = {
         "direccion": "Exacta",
         "municipio": "Aproximada",
+        "manual": "Corregida",
         None: "Sin ubicar",
     }
 

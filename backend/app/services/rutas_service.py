@@ -103,6 +103,34 @@ def _dos_opt(
     return camino
 
 
+def aplicar_ubicacion(
+    parada: dict, guardada: dict | None, correccion: dict | None
+) -> None:
+    """
+    Rellena la ubicación de una parada.
+
+    Manda la corrección hecha a mano; si no hay, la caché del geocodificador; si
+    tampoco, la parada se queda sin coordenadas. La corrección puede traer
+    además la dirección escrita a mano, que sustituye a la del manifiesto.
+    """
+    if correccion and correccion.get("lat") is not None and correccion.get("lon") is not None:
+        parada["direccion"] = correccion.get("direccion") or parada["direccion"]
+        parada["lat"] = correccion["lat"]
+        parada["lon"] = correccion["lon"]
+        parada["precision"] = "manual"
+        return
+
+    if guardada and guardada.get("lat") is not None and guardada.get("lon") is not None:
+        parada["lat"] = guardada["lat"]
+        parada["lon"] = guardada["lon"]
+        parada["precision"] = guardada["precision"]
+        return
+
+    parada["lat"] = None
+    parada["lon"] = None
+    parada["precision"] = None
+
+
 def ordenar_paradas(origen, paradas: list[dict]) -> dict:
     """
     Ordena las paradas por cercanía desde `origen`.

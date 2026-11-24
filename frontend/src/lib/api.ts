@@ -491,6 +491,7 @@ export interface ResumenRutas {
   total_bultos: number;
   pendientes_geocodificar: number;
   fallidas: number;
+  corregidas: number;
 }
 
 export interface ParadaRuta {
@@ -498,6 +499,8 @@ export interface ParadaRuta {
   orden: number;
   municipio: string;
   direccion: string;
+  // Dirección tal y como viene en el manifiesto, aunque se haya corregido.
+  direccion_original: string;
   destinatario: string;
   telefono: string;
   hbls: string[];
@@ -506,7 +509,7 @@ export interface ParadaRuta {
   estado: string;
   lat: number | null;
   lon: number | null;
-  precision: "direccion" | "municipio" | null;
+  precision: "direccion" | "municipio" | "manual" | null;
   tramo_km: number | null;
 }
 
@@ -632,4 +635,41 @@ export async function descargarRutaRepartidorExcel(
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(link.href);
+}
+
+
+// ============================================================
+// CORRECCIONES A MANO DE LA UBICACIÓN
+// ============================================================
+export async function corregirUbicacionParada(datos: {
+  provincia: string;
+  municipio: string;
+  direccion: string;
+  direccion_corregida?: string;
+  lat: number;
+  lon: number;
+}): Promise<void> {
+  await api.put("/rutas/paradas/correccion", datos);
+}
+
+export async function quitarCorreccionParada(
+  provincia: string,
+  municipio: string,
+  direccion: string
+): Promise<void> {
+  const params = new URLSearchParams({ provincia, municipio, direccion });
+  await api.delete(`/rutas/paradas/correccion?${params.toString()}`);
+}
+
+export async function buscarUbicacionParada(
+  direccion: string,
+  municipio: string,
+  provincia: string
+): Promise<{ lat: number | null; lon: number | null }> {
+  const response = await api.post(
+    "/rutas/paradas/buscar",
+    { direccion, municipio, provincia },
+    { timeout: 60000 }
+  );
+  return response.data;
 }

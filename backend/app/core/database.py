@@ -244,6 +244,19 @@ def init_db():
         )
     """)
 
+    # Correcciones a mano: mandan sobre la caché del geocodificador. La clave es
+    # la dirección original de la parada, así que corregirla no rompe el enlace
+    # con el manifiesto; `direccion` guarda el texto corregido, si lo hay.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS correcciones_parada (
+            clave TEXT PRIMARY KEY,
+            direccion TEXT,
+            lat DOUBLE PRECISION NOT NULL,
+            lon DOUBLE PRECISION NOT NULL,
+            actualizado_en TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -879,6 +892,71 @@ def guardar_geocodificaciones(filas: list) -> None:
                 """,
                 [(clave, lat, lon, precision, ahora) for clave, lat, lon, precision in filas],
             )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================
+# CORRECCIONES MANUALES DE UBICACIÓN
+# ============================================================
+def obtener_correcciones(claves: list) -> dict:
+    """
+    Correcciones hechas a mano para esas paradas.
+
+    Devuelve {clave: {"direccion", "lat", "lon"}}. `direccion` es el texto
+    corregido o None si solo se movieron las coordenadas.
+    """
+    if not claves:
+        return {}
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT clave, direccion, lat, lon FROM correcciones_parada "
+                "WHERE clave = ANY(%s)",
+                (claves,),
+            )
+            return {
+                fila[0]: {"direccion": fila[1], "lat": fila[2], "lon": fila[3]}
+                for fila in cursor.fetchall()
+            }
+    finally:
+        conn.close()
+
+
+def guardar_correccion(
+    clave: str, direccion: str | None, lat: float, lon: float
+) -> None:
+    """Guarda o reemplaza la ubicación a mano de una parada."""
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO correcciones_parada (clave, direccion, lat, lon, actualizado_en)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (clave) DO UPDATE SET
+                    direccion = EXCLUDED.direccion,
+                    lat = EXCLUDED.lat,
+                    lon = EXCLUDED.lon,
+                    actualizado_en = EXCLUDED.actualizado_en
+                """,
+                (clave, direccion or None, lat, lon, ahora),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def eliminar_correccion(clave: str) -> None:
+    """Quita la corrección: la parada vuelve a lo que diga la caché."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM correcciones_parada WHERE clave = %s", (clave,))
         conn.commit()
     finally:
         conn.close()

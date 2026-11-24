@@ -26,11 +26,14 @@ from app.core.config import (
 )
 from app.core.database import (
     crear_repartidor,
+    eliminar_correccion,
     eliminar_repartidor,
     guardar_asignacion,
+    guardar_correccion,
     guardar_geocodificaciones,
     listar_repartidores,
     obtener_asignaciones,
+    obtener_correcciones,
     obtener_geocodificaciones,
     obtener_hbls_de_provincia,
 )
@@ -42,7 +45,12 @@ from app.services.geocoding_service import (
     geocodificar_texto,
 )
 from app.services.paradas_service import marcar_paradas
-from app.services.rutas_service import clave_origen, clave_parada, ordenar_paradas
+from app.services.rutas_service import (
+    aplicar_ubicacion,
+    clave_origen,
+    clave_parada,
+    ordenar_paradas,
+)
 
 router = APIRouter(
     prefix="/rutas",
@@ -79,6 +87,21 @@ class Asignacion(BaseModel):
     provincia: str
     municipio: str
     repartidor: Optional[str] = None
+
+
+class CorreccionParada(BaseModel):
+    provincia: str
+    municipio: str
+    direccion: str
+    direccion_corregida: Optional[str] = None
+    lat: float
+    lon: float
+
+
+class BusquedaDireccion(BaseModel):
+    direccion: str
+    municipio: str
+    provincia: str
 
 
 # ============================================================
@@ -124,6 +147,8 @@ def _paradas_de_provincia(manifiesto_id: int, provincia: str) -> list[dict]:
                 "clave": clave_parada(provincia, municipio, direccion),
                 "municipio": municipio,
                 "direccion": direccion,
+                # La del manifiesto: es la que identifica la parada al corregirla.
+                "direccion_original": direccion,
                 "destinatario": _primer_texto(
                     grupo["Nombre y Apellidos del DESTINATARIO:"]
                 ),
@@ -140,17 +165,11 @@ def _paradas_de_provincia(manifiesto_id: int, provincia: str) -> list[dict]:
     return paradas
 
 
-def _aplicar_coordenadas(parada: dict, guardadas: dict) -> None:
-    """Copia a la parada sus coordenadas guardadas, si las hay."""
-    dato = guardadas.get(parada["clave"])
-    if dato and dato["lat"] is not None and dato["lon"] is not None:
-        parada["lat"] = dato["lat"]
-        parada["lon"] = dato["lon"]
-        parada["precision"] = dato["precision"]
-    else:
-        parada["lat"] = None
-        parada["lon"] = None
-        parada["precision"] = None
+def _aplicar_coordenadas(parada: dict, guardadas: dict, correcciones: dict) -> None:
+    """Copia a la parada su corrección manual o sus coordenadas guardadas."""
+    aplicar_ubicacion(
+        parada, guardadas.get(parada["clave"]), correcciones.get(parada["clave"])
+    )
 
 
 def _coordenadas_de_origen(provincia: str, guardadas: dict):
@@ -208,7 +227,9 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
     """
     paradas = _paradas_de_provincia(manifiesto_id, provincia)
     asignaciones = obtener_asignaciones(manifiesto_id, provincia)
-    guardadas = obtener_geocodificaciones([p["clave"] for p in paradas])
+    claves = [p["clave"] for p in paradas]
+    guardadas = obtener_geocodificaciones(claves)
+    correcciones = obtener_correcciones(claves)
 
     municipios = {}
     for parada in paradas:
@@ -224,7 +245,8 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
         )
         datos["paradas"] += 1
         datos["bultos"] += parada["bultos"]
-        if guardadas.get(parada["clave"], {}).get("lat") is not None:
+        ubicada = correcciones.get(parada["clave"]) or guardadas.get(parada["clave"], {})
+        if ubicada.get("lat") is not None:
             datos["ubicadas"] += 1
 
     nombres = listar_repartidores()
@@ -240,12 +262,18 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
             }
         )
 
-    sin_entrada = sum(1 for p in paradas if p["clave"] not in guardadas)
+    sin_entrada = sum(
+        1
+        for p in paradas
+        if p["clave"] not in guardadas and p["clave"] not in correcciones
+    )
     fallidas = sum(
         1
         for p in paradas
-        if guardadas.get(p["clave"], {}).get("precision") == "fallida"
+        if p["clave"] not in correcciones
+        and guardadas.get(p["clave"], {}).get("precision") == "fallida"
     )
+    corregidas = len(correcciones)
 
     return {
         "provincia": provincia,
@@ -255,6 +283,7 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
         "total_bultos": sum(p["bultos"] for p in paradas),
         "pendientes_geocodificar": sin_entrada,
         "fallidas": fallidas,
+        "corregidas": corregidas,
     }
 
 
@@ -297,8 +326,9 @@ def _ruta_calculada(
     guardadas = obtener_geocodificaciones(
         [p["clave"] for p in paradas] + [clave_origen(provincia)]
     )
+    correcciones = obtener_correcciones([p["clave"] for p in paradas])
     for parada in paradas:
-        _aplicar_coordenadas(parada, guardadas)
+        _aplicar_coordenadas(parada, guardadas, correcciones)
 
     resultado = ordenar_paradas(_coordenadas_de_origen(provincia, guardadas), paradas)
 
@@ -375,10 +405,12 @@ def preparar_coordenadas(
     claves = list(por_clave)
 
     guardadas = obtener_geocodificaciones(claves + [clave_origen(provincia)])
+    corregidas = obtener_correcciones(claves)
     faltan = [
         clave
         for clave in claves
-        if clave not in guardadas or guardadas[clave]["precision"] == "fallida"
+        if clave not in corregidas
+        and (clave not in guardadas or guardadas[clave]["precision"] == "fallida")
     ]
 
     pendientes_antes = len(faltan)
@@ -413,7 +445,8 @@ def preparar_coordenadas(
     pendientes = sum(
         1
         for clave in claves
-        if clave not in despues or despues[clave]["precision"] == "fallida"
+        if clave not in corregidas
+        and (clave not in despues or despues[clave]["precision"] == "fallida")
     )
 
     return {
@@ -425,3 +458,57 @@ def preparar_coordenadas(
         "pendientes_antes": pendientes_antes,
         "pendientes": pendientes,
     }
+
+
+# ============================================================
+# CORRECCIONES A MANO
+# ============================================================
+@router.put("/paradas/correccion", dependencies=[Depends(verificar_admin)])
+def corregir_parada(datos: CorreccionParada):
+    """
+    Fija a mano la ubicación de una parada (y, si se quiere, su dirección).
+
+    La corrección se guarda por la dirección original, así que vale también
+    para los demás manifiestos que traigan esa misma parada, y manda sobre lo
+    que haya devuelto el geocodificador.
+    """
+    if not -90 <= datos.lat <= 90:
+        raise HTTPException(status_code=400, detail="La latitud debe estar entre -90 y 90")
+    if not -180 <= datos.lon <= 180:
+        raise HTTPException(status_code=400, detail="La longitud debe estar entre -180 y 180")
+
+    direccion_corregida = (datos.direccion_corregida or "").strip()
+    clave = clave_parada(datos.provincia, datos.municipio, datos.direccion)
+    guardar_correccion(clave, direccion_corregida or None, datos.lat, datos.lon)
+
+    return {
+        "clave": clave,
+        "direccion": direccion_corregida or datos.direccion,
+        "lat": datos.lat,
+        "lon": datos.lon,
+    }
+
+
+@router.delete("/paradas/correccion", dependencies=[Depends(verificar_admin)])
+def quitar_correccion(
+    provincia: str = Query(...),
+    municipio: str = Query(...),
+    direccion: str = Query(...),
+):
+    """Quita la corrección: la parada vuelve a la ubicación del geocodificador."""
+    eliminar_correccion(clave_parada(provincia, municipio, direccion))
+    return {"status": "ok"}
+
+
+@router.post("/paradas/buscar", dependencies=[Depends(verificar_admin)])
+def buscar_ubicacion(datos: BusquedaDireccion):
+    """Busca unas coordenadas para la dirección escrita en el formulario."""
+    consulta = f"{datos.direccion}, {datos.municipio}, {datos.provincia}, Cuba"
+    try:
+        ubicacion = geocodificar_texto(consulta)
+    except GeocodificacionError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    if ubicacion is None:
+        return {"lat": None, "lon": None}
+    return {"lat": ubicacion[0], "lon": ubicacion[1]}

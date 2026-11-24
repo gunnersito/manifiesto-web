@@ -464,3 +464,142 @@ export async function buscarParadasPorMunicipio(manifiestoId: number, municipio:
   });
   return response.data;
 }
+
+// ============================================================
+// RUTAS DE REPARTO
+// ============================================================
+export interface MunicipioRuta {
+  municipio: string;
+  paradas: number;
+  bultos: number;
+  ubicadas: number;
+  repartidor: string | null;
+}
+
+export interface RepartidorRuta {
+  nombre: string;
+  municipios: string[];
+  paradas: number;
+  bultos: number;
+}
+
+export interface ResumenRutas {
+  provincia: string;
+  municipios: MunicipioRuta[];
+  repartidores: RepartidorRuta[];
+  total_paradas: number;
+  total_bultos: number;
+  pendientes_geocodificar: number;
+  fallidas: number;
+}
+
+export interface ParadaRuta {
+  clave: string;
+  orden: number;
+  municipio: string;
+  direccion: string;
+  destinatario: string;
+  telefono: string;
+  hbls: string[];
+  bultos: number;
+  peso: number;
+  estado: string;
+  lat: number | null;
+  lon: number | null;
+  precision: "direccion" | "municipio" | null;
+  tramo_km: number | null;
+}
+
+export interface RutaRepartidor {
+  repartidor: string;
+  provincia: string;
+  municipios?: string[];
+  paradas: ParadaRuta[];
+  distancia_km: number;
+  total_paradas: number;
+  total_bultos: number;
+  total_peso: number;
+  sin_ubicar: number;
+  aproximadas: number;
+  mensaje?: string | null;
+}
+
+export interface ProgresoGeocodificacion {
+  provincia: string;
+  procesadas: number;
+  ubicadas: number;
+  aproximadas: number;
+  fallidas: number;
+  pendientes_antes: number;
+  pendientes: number;
+}
+
+export async function obtenerResumenRutas(
+  manifiestoId: number,
+  provincia: string
+): Promise<ResumenRutas> {
+  const params = new URLSearchParams({ provincia });
+  const response = await api.get(`/rutas/${manifiestoId}?${params.toString()}`);
+  return response.data;
+}
+
+export async function obtenerRutaRepartidor(
+  manifiestoId: number,
+  nombre: string,
+  provincia: string,
+  soloPendientes: boolean = true
+): Promise<RutaRepartidor> {
+  const params = new URLSearchParams({
+    provincia,
+    solo_pendientes: String(soloPendientes),
+  });
+  const response = await api.get(
+    `/rutas/${manifiestoId}/repartidor/${encodeURIComponent(nombre)}?${params.toString()}`
+  );
+  return response.data;
+}
+
+export async function prepararCoordenadas(
+  manifiestoId: number,
+  provincia: string,
+  limite: number = 20
+): Promise<ProgresoGeocodificacion> {
+  const params = new URLSearchParams({ provincia, limite: String(limite) });
+  const response = await api.post(
+    `/rutas/${manifiestoId}/geocodificar?${params.toString()}`,
+    {},
+    { timeout: 180000 }
+  );
+  return response.data;
+}
+
+export async function obtenerRepartidores(): Promise<string[]> {
+  const response = await api.get("/rutas/repartidores");
+  return response.data.repartidores;
+}
+
+export async function crearRepartidor(nombre: string): Promise<string[]> {
+  const response = await api.post("/rutas/repartidores", { nombre });
+  return response.data.repartidores;
+}
+
+export async function eliminarRepartidor(nombre: string): Promise<string[]> {
+  const response = await api.delete(
+    `/rutas/repartidores/${encodeURIComponent(nombre)}`
+  );
+  return response.data.repartidores;
+}
+
+export async function asignarRepartidor(
+  manifiestoId: number,
+  provincia: string,
+  municipio: string,
+  repartidor: string | null
+): Promise<void> {
+  await api.put("/rutas/asignaciones", {
+    manifiesto_id: manifiestoId,
+    provincia,
+    municipio,
+    repartidor,
+  });
+}

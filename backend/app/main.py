@@ -11,7 +11,7 @@ from app.core.config import CORS_ORIGINS
 from app.core.database import crear_admin_si_no_existe, init_db
 
 # Importamos todas las rutas
-from app.api.routes import auth, usuarios, manifiestos
+from app.api.routes import auth, usuarios, manifiestos, rutas
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(usuarios.router, prefix="/api")
 app.include_router(manifiestos.router, prefix="/api")
+app.include_router(rutas.router, prefix="/api")
 
 # --- Endpoint de prueba ---
 @app.get("/")

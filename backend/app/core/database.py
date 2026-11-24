@@ -208,6 +208,42 @@ def init_db():
         ON entregas_historial (hbl, id DESC)
     """)
 
+    # Repartidores y el municipio que lleva cada uno en un manifiesto.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS repartidores (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT UNIQUE NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS asignaciones_repartidor (
+            id SERIAL PRIMARY KEY,
+            manifiesto_id INTEGER NOT NULL REFERENCES manifiestos(id) ON DELETE CASCADE,
+            provincia TEXT NOT NULL,
+            municipio TEXT NOT NULL,
+            repartidor TEXT NOT NULL,
+            UNIQUE (manifiesto_id, provincia, municipio)
+        )
+    """)
+
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_asignaciones_manifiesto "
+        "ON asignaciones_repartidor (manifiesto_id, provincia)"
+    )
+
+    # Caché de coordenadas: una fila por dirección consultada, compartida entre
+    # manifiestos para no geocodificar dos veces la misma dirección.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS geocodificaciones (
+            clave TEXT PRIMARY KEY,
+            lat DOUBLE PRECISION,
+            lon DOUBLE PRECISION,
+            precision TEXT NOT NULL,
+            consultado_en TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -701,3 +737,148 @@ def buscar_manifiesto_por_hash(hash_archivo: str) -> dict | None:
         "resumen": json.loads(row[7]) if row[7] else [],
     }
 
+
+
+# ============================================================
+# REPARTIDORES Y ASIGNACIÓN DE MUNICIPIOS
+# ============================================================
+def listar_repartidores() -> list:
+    """Nombres de los repartidores dados de alta, en orden alfabético."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT nombre FROM repartidores ORDER BY lower(nombre)")
+            return [fila[0] for fila in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def crear_repartidor(nombre: str) -> bool:
+    """Da de alta un repartidor. Devuelve False si ya existía."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO repartidores (nombre) VALUES (%s) "
+                "ON CONFLICT (nombre) DO NOTHING",
+                (nombre,),
+            )
+            creado = cursor.rowcount == 1
+        conn.commit()
+        return creado
+    finally:
+        conn.close()
+
+
+def eliminar_repartidor(nombre: str) -> None:
+    """Borra el repartidor y deja sin asignar todos sus municipios."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM asignaciones_repartidor WHERE repartidor = %s", (nombre,)
+            )
+            cursor.execute("DELETE FROM repartidores WHERE nombre = %s", (nombre,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def obtener_asignaciones(manifiesto_id: int, provincia: str) -> dict:
+    """{municipio: repartidor} de una provincia de un manifiesto."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT municipio, repartidor FROM asignaciones_repartidor "
+                "WHERE manifiesto_id = %s AND provincia = %s",
+                (manifiesto_id, provincia),
+            )
+            return dict(cursor.fetchall())
+    finally:
+        conn.close()
+
+
+def guardar_asignacion(
+    manifiesto_id: int, provincia: str, municipio: str, repartidor: str | None
+) -> None:
+    """Asigna un municipio a un repartidor; sin repartidor, la borra."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if not repartidor:
+                cursor.execute(
+                    "DELETE FROM asignaciones_repartidor "
+                    "WHERE manifiesto_id = %s AND provincia = %s AND municipio = %s",
+                    (manifiesto_id, provincia, municipio),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO asignaciones_repartidor
+                        (manifiesto_id, provincia, municipio, repartidor)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (manifiesto_id, provincia, municipio)
+                    DO UPDATE SET repartidor = EXCLUDED.repartidor
+                    """,
+                    (manifiesto_id, provincia, municipio, repartidor),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================
+# GEOCODIFICACIÓN (caché de coordenadas)
+# ============================================================
+def obtener_geocodificaciones(claves: list) -> dict:
+    """
+    Coordenadas ya consultadas para esas claves.
+
+    Devuelve {clave: {"lat", "lon", "precision"}}. `precision` es "direccion",
+    "municipio" (se ubicó solo el municipio) o "fallida" (no se encontró nada).
+    """
+    if not claves:
+        return {}
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT clave, lat, lon, precision FROM geocodificaciones "
+                "WHERE clave = ANY(%s)",
+                (claves,),
+            )
+            return {
+                fila[0]: {"lat": fila[1], "lon": fila[2], "precision": fila[3]}
+                for fila in cursor.fetchall()
+            }
+    finally:
+        conn.close()
+
+
+def guardar_geocodificaciones(filas: list) -> None:
+    """Guarda o actualiza coordenadas. Cada fila es (clave, lat, lon, precision)."""
+    if not filas:
+        return
+
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            execute_batch(
+                cursor,
+                """
+                INSERT INTO geocodificaciones (clave, lat, lon, precision, consultado_en)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (clave) DO UPDATE SET
+                    lat = EXCLUDED.lat,
+                    lon = EXCLUDED.lon,
+                    precision = EXCLUDED.precision,
+                    consultado_en = EXCLUDED.consultado_en
+                """,
+                [(clave, lat, lon, precision, ahora) for clave, lat, lon, precision in filas],
+            )
+        conn.commit()
+    finally:
+        conn.close()

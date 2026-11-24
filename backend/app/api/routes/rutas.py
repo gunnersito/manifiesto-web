@@ -1,0 +1,396 @@
+"""
+Rutas de reparto.
+
+Cada municipio de un manifiesto se asigna a un repartidor. Con las paradas de
+sus municipios se calcula el orden de visita más corto desde la cabecera
+provincial, usando las coordenadas guardadas en `geocodificaciones`.
+
+Las direcciones son texto libre y no todas se pueden ubicar, así que la
+precisión se devuelve junto a cada parada: "direccion" (exacta), "municipio"
+(aproximada) o ninguna (sin ubicar).
+"""
+from typing import Optional
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from app.api.routes.manifiestos import verificar_admin, verificar_lector
+from app.core.config import (
+    COL_BULTOS,
+    COL_DIRECCION,
+    COL_HBL,
+    COL_MUNICIPIO,
+    COL_PROVINCIA,
+)
+from app.core.database import (
+    crear_repartidor,
+    eliminar_repartidor,
+    guardar_asignacion,
+    guardar_geocodificaciones,
+    listar_repartidores,
+    obtener_asignaciones,
+    obtener_geocodificaciones,
+    obtener_hbls_de_provincia,
+)
+from app.services.estados_service import enriquecer_df_con_estados
+from app.services.geocoding_service import (
+    GeocodificacionError,
+    geocodificar_paradas,
+    geocodificar_texto,
+)
+from app.services.paradas_service import marcar_paradas
+from app.services.rutas_service import clave_origen, clave_parada, ordenar_paradas
+
+router = APIRouter(
+    prefix="/rutas",
+    tags=["Rutas"],
+    dependencies=[Depends(verificar_lector)],
+)
+
+# Una parada en estos estados ya no hay que visitarla.
+ESTADOS_CERRADOS = {"Entregada", "Devuelto Almacén"}
+
+# Nombre de cada columna de la tabla `hbls` en el DataFrame que esperan los
+# servicios de paradas (mismo mapeo que usa la carga del manifiesto).
+_COLUMNAS_BD = {
+    "hbl": COL_HBL,
+    "provincia": COL_PROVINCIA,
+    "municipio": COL_MUNICIPIO,
+    "direccion": COL_DIRECCION,
+    "remitente": "Nombre y Apellidos del REMITENTE:",
+    "destinatario": "Nombre y Apellidos del DESTINATARIO:",
+    "telefono": "Teléfono del DESTINATARIO",
+    "contenido": "Contenido del paquete (Descripción)",
+    "bultos": COL_BULTOS,
+    "peso": "Peso (Kg)",
+    "parada": "Paradas",
+}
+
+
+class RepartidorNuevo(BaseModel):
+    nombre: str
+
+
+class Asignacion(BaseModel):
+    manifiesto_id: int
+    provincia: str
+    municipio: str
+    repartidor: Optional[str] = None
+
+
+# ============================================================
+# PARADAS DE LA PROVINCIA
+# ============================================================
+def _primer_texto(serie) -> str:
+    """Primer valor no vacío de una columna, para destinatario y teléfono."""
+    for valor in serie.tolist():
+        if valor is None or pd.isna(valor):
+            continue
+        texto = str(valor).strip()
+        if texto and texto.lower() != "nan":
+            return texto
+    return ""
+
+
+def _paradas_de_provincia(manifiesto_id: int, provincia: str) -> list[dict]:
+    """
+    Paradas de una provincia con sus HBLs, bultos, peso y estado.
+
+    Se calculan con el mismo agrupado que el resumen de provincias, así que los
+    números coinciden con los que ya muestra la app.
+    """
+    filas = obtener_hbls_de_provincia(manifiesto_id, provincia)
+    if not filas:
+        raise HTTPException(
+            status_code=404,
+            detail="Esa provincia no tiene HBLs en este manifiesto",
+        )
+
+    df = pd.DataFrame(filas).rename(columns=_COLUMNAS_BD)
+    df = marcar_paradas(enriquecer_df_con_estados(df))
+
+    paradas = []
+    for _, grupo in df.groupby("_grupo_id", sort=False):
+        primera = grupo.iloc[0]
+        municipio = str(primera[COL_MUNICIPIO])
+        direccion = str(primera[COL_DIRECCION])
+        estados = {str(e).strip() for e in grupo["Estado"].tolist() if str(e).strip()}
+
+        paradas.append(
+            {
+                "clave": clave_parada(provincia, municipio, direccion),
+                "municipio": municipio,
+                "direccion": direccion,
+                "destinatario": _primer_texto(
+                    grupo["Nombre y Apellidos del DESTINATARIO:"]
+                ),
+                "telefono": _primer_texto(grupo["Teléfono del DESTINATARIO"]),
+                "hbls": [str(h) for h in grupo[COL_HBL].tolist()],
+                "bultos": int(pd.to_numeric(grupo[COL_BULTOS], errors="coerce").fillna(0).sum()),
+                "peso": float(
+                    pd.to_numeric(grupo["Peso (Kg)"], errors="coerce").fillna(0).sum()
+                ),
+                "estado": next(iter(estados)) if len(estados) == 1 else "Mixto",
+            }
+        )
+
+    return paradas
+
+
+def _aplicar_coordenadas(parada: dict, guardadas: dict) -> None:
+    """Copia a la parada sus coordenadas guardadas, si las hay."""
+    dato = guardadas.get(parada["clave"])
+    if dato and dato["lat"] is not None and dato["lon"] is not None:
+        parada["lat"] = dato["lat"]
+        parada["lon"] = dato["lon"]
+        parada["precision"] = dato["precision"]
+    else:
+        parada["lat"] = None
+        parada["lon"] = None
+        parada["precision"] = None
+
+
+def _coordenadas_de_origen(provincia: str, guardadas: dict):
+    dato = guardadas.get(clave_origen(provincia))
+    if dato and dato["lat"] is not None and dato["lon"] is not None:
+        return (dato["lat"], dato["lon"])
+    return None
+
+
+# ============================================================
+# REPARTIDORES
+# ============================================================
+@router.get("/repartidores")
+def obtener_repartidores():
+    """Repartidores dados de alta."""
+    return {"repartidores": listar_repartidores()}
+
+
+@router.post("/repartidores", dependencies=[Depends(verificar_admin)])
+def nuevo_repartidor(datos: RepartidorNuevo):
+    nombre = datos.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    if not crear_repartidor(nombre):
+        raise HTTPException(status_code=409, detail="Ese repartidor ya existe")
+    return {"repartidores": listar_repartidores()}
+
+
+@router.delete("/repartidores/{nombre}", dependencies=[Depends(verificar_admin)])
+def borrar_repartidor(nombre: str):
+    """Borra el repartidor y deja sus municipios sin asignar."""
+    eliminar_repartidor(nombre)
+    return {"repartidores": listar_repartidores()}
+
+
+@router.put("/asignaciones", dependencies=[Depends(verificar_admin)])
+def asignar_municipio(datos: Asignacion):
+    """Asigna un municipio a un repartidor (o lo deja sin asignar)."""
+    repartidor = (datos.repartidor or "").strip() or None
+    if repartidor and repartidor not in listar_repartidores():
+        raise HTTPException(status_code=404, detail="Ese repartidor no existe")
+    guardar_asignacion(
+        datos.manifiesto_id, datos.provincia, datos.municipio, repartidor
+    )
+    return {"municipio": datos.municipio, "repartidor": repartidor}
+
+
+# ============================================================
+# RESUMEN DE LA PROVINCIA
+# ============================================================
+@router.get("/{manifiesto_id}")
+def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
+    """
+    Municipios de la provincia con su repartidor y el estado de las coordenadas.
+    """
+    paradas = _paradas_de_provincia(manifiesto_id, provincia)
+    asignaciones = obtener_asignaciones(manifiesto_id, provincia)
+    guardadas = obtener_geocodificaciones([p["clave"] for p in paradas])
+
+    municipios = {}
+    for parada in paradas:
+        datos = municipios.setdefault(
+            parada["municipio"],
+            {
+                "municipio": parada["municipio"],
+                "paradas": 0,
+                "bultos": 0,
+                "ubicadas": 0,
+                "repartidor": asignaciones.get(parada["municipio"]),
+            },
+        )
+        datos["paradas"] += 1
+        datos["bultos"] += parada["bultos"]
+        if guardadas.get(parada["clave"], {}).get("lat") is not None:
+            datos["ubicadas"] += 1
+
+    nombres = listar_repartidores()
+    repartidores = []
+    for nombre in nombres:
+        suyos = [m for m in municipios.values() if m["repartidor"] == nombre]
+        repartidores.append(
+            {
+                "nombre": nombre,
+                "municipios": [m["municipio"] for m in suyos],
+                "paradas": sum(m["paradas"] for m in suyos),
+                "bultos": sum(m["bultos"] for m in suyos),
+            }
+        )
+
+    sin_entrada = sum(1 for p in paradas if p["clave"] not in guardadas)
+    fallidas = sum(
+        1
+        for p in paradas
+        if guardadas.get(p["clave"], {}).get("precision") == "fallida"
+    )
+
+    return {
+        "provincia": provincia,
+        "municipios": sorted(municipios.values(), key=lambda m: m["municipio"]),
+        "repartidores": repartidores,
+        "total_paradas": len(paradas),
+        "total_bultos": sum(p["bultos"] for p in paradas),
+        "pendientes_geocodificar": sin_entrada,
+        "fallidas": fallidas,
+    }
+
+
+# ============================================================
+# RUTA DE UN REPARTIDOR
+# ============================================================
+@router.get("/{manifiesto_id}/repartidor/{nombre}")
+def ruta_de_repartidor(
+    manifiesto_id: int,
+    nombre: str,
+    provincia: str = Query(...),
+    solo_pendientes: bool = Query(True),
+):
+    """
+    Paradas del repartidor ordenadas de la más cercana a la siguiente.
+
+    La ruta arranca en la cabecera de la provincia (geocodificada como
+    "Provincia, Cuba") y termina en la última entrega: es un recorrido abierto,
+    no un ida y vuelta al almacén.
+    """
+    paradas = _paradas_de_provincia(manifiesto_id, provincia)
+    asignaciones = obtener_asignaciones(manifiesto_id, provincia)
+    municipios = {m for m, r in asignaciones.items() if r == nombre}
+
+    if not municipios:
+        return {
+            "repartidor": nombre,
+            "provincia": provincia,
+            "paradas": [],
+            "distancia_km": 0,
+            "total_paradas": 0,
+            "total_bultos": 0,
+            "total_peso": 0,
+            "sin_ubicar": 0,
+            "aproximadas": 0,
+            "mensaje": "Este repartidor no tiene municipios asignados en esta provincia.",
+        }
+
+    paradas = [p for p in paradas if p["municipio"] in municipios]
+    if solo_pendientes:
+        paradas = [p for p in paradas if p["estado"] not in ESTADOS_CERRADOS]
+
+    guardadas = obtener_geocodificaciones(
+        [p["clave"] for p in paradas] + [clave_origen(provincia)]
+    )
+    for parada in paradas:
+        _aplicar_coordenadas(parada, guardadas)
+
+    resultado = ordenar_paradas(_coordenadas_de_origen(provincia, guardadas), paradas)
+
+    ordenadas = []
+    for posicion, parada in enumerate(resultado["orden"], start=1):
+        parada["orden"] = posicion
+        ordenadas.append(parada)
+
+    return {
+        "repartidor": nombre,
+        "provincia": provincia,
+        "municipios": sorted(municipios),
+        "paradas": ordenadas,
+        "distancia_km": resultado["distancia_km"],
+        "total_paradas": len(ordenadas),
+        "total_bultos": sum(p["bultos"] for p in ordenadas),
+        "total_peso": round(sum(p["peso"] for p in ordenadas), 1),
+        "sin_ubicar": sum(1 for p in ordenadas if p["lat"] is None),
+        "aproximadas": sum(1 for p in ordenadas if p["precision"] == "municipio"),
+        "mensaje": None,
+    }
+
+
+# ============================================================
+# GEOCODIFICACIÓN
+# ============================================================
+@router.post("/{manifiesto_id}/geocodificar", dependencies=[Depends(verificar_admin)])
+def preparar_coordenadas(
+    manifiesto_id: int,
+    provincia: str = Query(...),
+    limite: int = Query(20, ge=1, le=50),
+):
+    """
+    Geocodifica las paradas que aún no tienen coordenadas.
+
+    Se hace por tandas (20 por defecto) porque el servicio de mapas admite una
+    petición por segundo: la pantalla repite la llamada hasta terminar y muestra
+    el avance. Las coordenadas quedan guardadas y no se vuelven a consultar.
+    """
+    paradas = _paradas_de_provincia(manifiesto_id, provincia)
+    por_clave = {p["clave"]: p for p in paradas}
+    claves = list(por_clave)
+
+    guardadas = obtener_geocodificaciones(claves + [clave_origen(provincia)])
+    faltan = [
+        clave
+        for clave in claves
+        if clave not in guardadas or guardadas[clave]["precision"] == "fallida"
+    ]
+
+    pendientes_antes = len(faltan)
+    lote = faltan[:limite]
+
+    try:
+        filas = geocodificar_paradas(
+            [
+                {
+                    "clave": clave,
+                    "direccion": por_clave[clave]["direccion"],
+                    "municipio": por_clave[clave]["municipio"],
+                    "provincia": provincia,
+                }
+                for clave in lote
+            ]
+        )
+
+        origen_clave = clave_origen(provincia)
+        origen_guardado = guardadas.get(origen_clave)
+        if origen_guardado is None or origen_guardado["lat"] is None:
+            ubicacion = geocodificar_texto(f"{provincia}, Cuba")
+            if ubicacion is not None:
+                filas.append((origen_clave, ubicacion[0], ubicacion[1], "provincia"))
+    except GeocodificacionError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    guardar_geocodificaciones(filas)
+
+    despues = obtener_geocodificaciones(claves + [clave_origen(provincia)])
+    resultados_lote = {fila[0]: fila[3] for fila in filas}
+    pendientes = sum(
+        1
+        for clave in claves
+        if clave not in despues or despues[clave]["precision"] == "fallida"
+    )
+
+    return {
+        "provincia": provincia,
+        "procesadas": len(resultados_lote),
+        "ubicadas": sum(1 for p in resultados_lote.values() if p in ("direccion", "municipio")),
+        "aproximadas": sum(1 for p in resultados_lote.values() if p == "municipio"),
+        "fallidas": sum(1 for p in resultados_lote.values() if p == "fallida"),
+        "pendientes_antes": pendientes_antes,
+        "pendientes": pendientes,
+    }

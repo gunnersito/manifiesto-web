@@ -15,6 +15,7 @@ import {
   MapPin,
   Menu,
   Package,
+  Route,
   Settings,
   Upload,
   User,
@@ -55,6 +56,7 @@ const GRUPOS: GrupoMenu[] = [
     items: [
       { href: "/registros", label: "Registros", icon: List },
       { href: "/provincias", label: "Provincias", icon: MapPin },
+      { href: "/rutas", label: "Rutas", icon: Route },
     ],
   },
   {

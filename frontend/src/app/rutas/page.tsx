@@ -18,17 +18,23 @@ import {
   Trash2,
   Truck,
   Upload,
+  Warehouse,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 import {
   asignarRepartidor,
+  asignarSalidaRuta,
+  buscarPuntoPartida,
   buscarUbicacionParada,
   corregirUbicacionParada,
+  crearPuntoPartida,
   crearRepartidor,
   descargarRutaRepartidorExcel,
+  eliminarPuntoPartida,
   eliminarRepartidor,
+  obtenerPuntosPartida,
   obtenerRepartidores,
   obtenerResumenRutas,
   obtenerRutaRepartidor,
@@ -36,6 +42,7 @@ import {
   quitarCorreccionParada,
   type ParadaRuta,
   type ProgresoGeocodificacion,
+  type PuntoPartida,
   type ResumenRutas,
   type RutaRepartidor,
 } from "@/lib/api";
@@ -61,6 +68,7 @@ export default function RutasPage() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repartidores, setRepartidores] = useState<string[]>([]);
+  const [puntos, setPuntos] = useState<PuntoPartida[]>([]);
   const [nuevoRepartidor, setNuevoRepartidor] = useState("");
   const [repartidorSel, setRepartidorSel] = useState("");
   const [ruta, setRuta] = useState<RutaRepartidor | null>(null);
@@ -78,6 +86,14 @@ export default function RutasPage() {
   } | null>(null);
   const [guardandoCorreccion, setGuardandoCorreccion] = useState(false);
   const [buscandoCoordenadas, setBuscandoCoordenadas] = useState(false);
+  const [nuevaBase, setNuevaBase] = useState<{
+    nombre: string;
+    direccion: string;
+    lat: string;
+    lon: string;
+  } | null>(null);
+  const [guardandoBase, setGuardandoBase] = useState(false);
+  const [buscandoBase, setBuscandoBase] = useState(false);
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
@@ -100,12 +116,14 @@ export default function RutasPage() {
     setCargando(true);
     setError(null);
     try {
-      const [datos, nombres] = await Promise.all([
+      const [datos, nombres, bases] = await Promise.all([
         obtenerResumenRutas(manifiestoId, provincia),
         obtenerRepartidores(),
+        obtenerPuntosPartida(),
       ]);
       setResumen(datos);
       setRepartidores(nombres);
+      setPuntos(bases);
       setRepartidorSel((actual) => {
         if (actual && datos.repartidores.some((r) => r.nombre === actual && r.municipios.length > 0)) {
           return actual;
@@ -236,6 +254,100 @@ export default function RutasPage() {
       toast.error("No se pudo exportar la ruta");
     } finally {
       setExportandoRuta(false);
+    }
+  };
+
+  const cambiarSalida = async (valor: string) => {
+    if (!manifiestoId || !repartidorSel) return;
+    try {
+      await asignarSalidaRuta(
+        manifiestoId,
+        provincia,
+        repartidorSel,
+        valor ? Number(valor) : null
+      );
+      setVersionRuta((v) => v + 1);
+    } catch {
+      toast.error("No se pudo cambiar el punto de salida");
+    }
+  };
+
+  const buscarBase = async () => {
+    if (!nuevaBase) return;
+    if (!nuevaBase.direccion.trim()) {
+      toast.error("Escribe la dirección de la base");
+      return;
+    }
+    setBuscandoBase(true);
+    try {
+      const { lat, lon } = await buscarPuntoPartida(
+        nuevaBase.direccion,
+        "",
+        provincia
+      );
+      if (lat == null || lon == null) {
+        toast.error(
+          "El mapa no encontró esa dirección. Puedes escribir las coordenadas a mano."
+        );
+        return;
+      }
+      setNuevaBase((actual) =>
+        actual ? { ...actual, lat: String(lat), lon: String(lon) } : actual
+      );
+      toast.success("Coordenadas encontradas");
+    } catch {
+      toast.error("No se pudo consultar el mapa");
+    } finally {
+      setBuscandoBase(false);
+    }
+  };
+
+  const guardarBase = async () => {
+    if (!nuevaBase || !manifiestoId || !repartidorSel) return;
+    const nombre = nuevaBase.nombre.trim();
+    const lat = Number(nuevaBase.lat.replace(",", "."));
+    const lon = Number(nuevaBase.lon.replace(",", "."));
+    if (!nombre) {
+      toast.error("Ponle un nombre a la base");
+      return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      toast.error("Escribe la latitud y la longitud de la base");
+      return;
+    }
+    setGuardandoBase(true);
+    try {
+      const { puntos: actualizados, id } = await crearPuntoPartida({
+        nombre,
+        direccion: nuevaBase.direccion.trim(),
+        lat,
+        lon,
+      });
+      setPuntos(actualizados);
+      await asignarSalidaRuta(manifiestoId, provincia, repartidorSel, id);
+      setNuevaBase(null);
+      setVersionRuta((v) => v + 1);
+      toast.success(`${repartidorSel} sale de ${nombre}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "No se pudo guardar la base");
+    } finally {
+      setGuardandoBase(false);
+    }
+  };
+
+  const borrarBase = async (puntoId: number) => {
+    const base = puntos.find((punto) => punto.id === puntoId);
+    if (!base) return;
+    const confirmado = window.confirm(
+      `¿Eliminar la base ${base.nombre}? Los repartidores que salían de ella pasarán a la cabecera provincial.`
+    );
+    if (!confirmado) return;
+    try {
+      setPuntos(await eliminarPuntoPartida(puntoId));
+      setVersionRuta((v) => v + 1);
+      toast.success("Base eliminada");
+    } catch {
+      toast.error("No se pudo eliminar la base");
     }
   };
 
@@ -564,8 +676,55 @@ export default function RutasPage() {
                       {repartidorSel ? `Ruta de ${repartidorSel}` : "Ruta del repartidor"}
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
-                      Empieza en la cabecera de {provincia} y encadena las paradas más cercanas.
+                      {ruta?.origen?.tipo === "base"
+                        ? `Empieza en ${ruta.origen.etiqueta} y encadena las paradas más cercanas.`
+                        : ruta?.origen?.tipo === "primera_parada"
+                        ? "No se pudo ubicar la salida: la ruta empieza en la primera parada."
+                        : `Empieza en la cabecera de ${provincia} y encadena las paradas más cercanas.`}
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 font-medium text-slate-600">
+                        <Warehouse className="h-3.5 w-3.5" /> Punto de salida
+                      </span>
+                      <select
+                        aria-label="Punto de salida"
+                        value={
+                          ruta?.origen?.tipo === "base" && ruta.origen.punto_id
+                            ? String(ruta.origen.punto_id)
+                            : ""
+                        }
+                        onChange={(evento) => cambiarSalida(evento.target.value)}
+                        disabled={!isAdmin || !repartidorSel}
+                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-primary focus:outline-none disabled:opacity-60"
+                      >
+                        <option value="">Cabecera de {provincia}</option>
+                        {puntos.map((punto) => (
+                          <option key={punto.id} value={punto.id}>
+                            {punto.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {isAdmin && repartidorSel && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNuevaBase({ nombre: "", direccion: "", lat: "", lon: "" })
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Nueva base
+                        </button>
+                      )}
+                      {isAdmin && ruta?.origen?.tipo === "base" && ruta.origen.punto_id && (
+                        <button
+                          type="button"
+                          onClick={() => borrarBase(ruta.origen!.punto_id!)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-red-600 transition-colors hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Borrar base
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {ruta && ruta.paradas.length > 0 && (
@@ -878,6 +1037,137 @@ export default function RutasPage() {
                   Guardar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={nuevaBase !== null}
+        onClose={() => setNuevaBase(null)}
+        title="Nueva base de salida"
+      >
+        {nuevaBase && (
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="base-nombre"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
+                Nombre
+              </label>
+              <input
+                id="base-nombre"
+                value={nuevaBase.nombre}
+                onChange={(evento) =>
+                  setNuevaBase((actual) =>
+                    actual ? { ...actual, nombre: evento.target.value } : actual
+                  )
+                }
+                placeholder="Almacén Pinar del Río"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="base-direccion"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
+                Dirección
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="base-direccion"
+                  value={nuevaBase.direccion}
+                  onChange={(evento) =>
+                    setNuevaBase((actual) =>
+                      actual ? { ...actual, direccion: evento.target.value } : actual
+                    )
+                  }
+                  placeholder="Calle Martí 120, Pinar del Río"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={buscarBase}
+                  disabled={buscandoBase}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {buscandoBase ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Buscar
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Se busca en OpenStreetMap con la provincia del manifiesto. También
+                puedes escribir las coordenadas a mano.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="base-lat"
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                  Latitud
+                </label>
+                <input
+                  id="base-lat"
+                  value={nuevaBase.lat}
+                  onChange={(evento) =>
+                    setNuevaBase((actual) =>
+                      actual ? { ...actual, lat: evento.target.value } : actual
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="22.4136"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="base-lon"
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                  Longitud
+                </label>
+                <input
+                  id="base-lon"
+                  value={nuevaBase.lon}
+                  onChange={(evento) =>
+                    setNuevaBase((actual) =>
+                      actual ? { ...actual, lon: evento.target.value } : actual
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="-83.6880"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setNuevaBase(null)}
+                className="rounded-lg px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarBase}
+                disabled={guardandoBase}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+              >
+                {guardandoBase && <Loader2 className="h-4 w-4 animate-spin" />}
+                Guardar
+              </button>
             </div>
           </div>
         )}

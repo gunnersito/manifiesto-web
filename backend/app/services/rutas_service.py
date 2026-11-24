@@ -131,6 +131,44 @@ def aplicar_ubicacion(
     parada["precision"] = None
 
 
+def resolver_origen(salida: dict | None, cabecera) -> dict:
+    """
+    Punto desde el que arranca la ruta de un repartidor.
+
+    Manda la base de salida que tenga asignada; si no tiene (o no está
+    ubicada), la cabecera provincial; y si tampoco hay coordenadas, la ruta
+    empieza en la primera parada, como antes.
+    """
+    if salida and salida.get("lat") is not None and salida.get("lon") is not None:
+        return {
+            "lat": salida["lat"],
+            "lon": salida["lon"],
+            "etiqueta": salida.get("nombre") or "Punto de partida",
+            "tipo": "base",
+            "punto_id": salida.get("id"),
+            "direccion": salida.get("direccion") or "",
+        }
+
+    if cabecera is not None:
+        return {
+            "lat": cabecera[0],
+            "lon": cabecera[1],
+            "etiqueta": "Cabecera provincial",
+            "tipo": "cabecera",
+            "punto_id": None,
+            "direccion": "",
+        }
+
+    return {
+        "lat": None,
+        "lon": None,
+        "etiqueta": None,
+        "tipo": "primera_parada",
+        "punto_id": None,
+        "direccion": "",
+    }
+
+
 def ordenar_paradas(origen, paradas: list[dict]) -> dict:
     """
     Ordena las paradas por cercanía desde `origen`.

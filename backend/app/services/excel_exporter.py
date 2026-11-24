@@ -294,6 +294,15 @@ def _agregar_totales_ruta(hoja, ruta: dict) -> None:
         ("TOTAL PESO (KG):", ruta["total_peso"]),
         ("DISTANCIA ESTIMADA (KM):", ruta["distancia_km"]),
     ]
+    origen = ruta.get("origen") or {}
+    salida = {
+        "base": origen.get("etiqueta") or "Base de salida",
+        "cabecera": "Cabecera provincial",
+        "primera_parada": "Primera parada (sin salida ubicada)",
+    }.get(origen.get("tipo"))
+    if salida:
+        resumen.insert(1, ("SALIDA:", salida))
+
     if ruta.get("aproximadas"):
         resumen.append(("PARADAS CON UBICACIÓN APROXIMADA:", ruta["aproximadas"]))
     if ruta.get("sin_ubicar"):
@@ -308,8 +317,9 @@ def _agregar_totales_ruta(hoja, ruta: dict) -> None:
         row=nota,
         column=1,
         value=(
-            "Orden por cercanía desde la cabecera provincial, con distancia "
-            "estimada por carretera. Los kilómetros son acumulados."
+            "Orden por cercanía desde el punto de salida del repartidor; si no "
+            "tiene uno asignado, desde la cabecera provincial. La distancia "
+            "está estimada por carretera y los kilómetros son acumulados."
         ),
     )
     celda.font = Font(italic=True, color="595959")

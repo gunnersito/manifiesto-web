@@ -2,8 +2,9 @@
 Rutas de reparto.
 
 Cada municipio de un manifiesto se asigna a un repartidor. Con las paradas de
-sus municipios se calcula el orden de visita más corto desde la cabecera
-provincial, usando las coordenadas guardadas en `geocodificaciones`.
+sus municipios se calcula el orden de visita más corto desde su punto de
+salida (una base del catálogo) o, si no tiene, desde la cabecera provincial,
+usando las coordenadas guardadas en `geocodificaciones`.
 
 Las direcciones son texto libre y no todas se pueden ubicar, así que la
 precisión se devuelve junto a cada parada: "direccion" (exacta), "municipio"
@@ -27,15 +28,20 @@ from app.core.config import (
 from app.core.database import (
     crear_repartidor,
     eliminar_correccion,
+    eliminar_punto_partida,
     eliminar_repartidor,
     guardar_asignacion,
     guardar_correccion,
     guardar_geocodificaciones,
+    guardar_punto_partida,
+    guardar_salida,
+    listar_puntos_partida,
     listar_repartidores,
     obtener_asignaciones,
     obtener_correcciones,
     obtener_geocodificaciones,
     obtener_hbls_de_provincia,
+    obtener_salida,
 )
 from app.services.estados_service import enriquecer_df_con_estados
 from app.services.excel_exporter import exportar_ruta_repartidor_excel
@@ -50,6 +56,7 @@ from app.services.rutas_service import (
     clave_origen,
     clave_parada,
     ordenar_paradas,
+    resolver_origen,
 )
 
 router = APIRouter(
@@ -102,6 +109,25 @@ class BusquedaDireccion(BaseModel):
     direccion: str
     municipio: str
     provincia: str
+
+
+class PuntoPartidaNuevo(BaseModel):
+    nombre: str
+    direccion: str = ""
+    lat: float
+    lon: float
+
+
+class AsignacionSalida(BaseModel):
+    provincia: str
+    repartidor: str
+    punto_id: Optional[int] = None
+
+
+class BusquedaSalida(BaseModel):
+    direccion: str
+    municipio: str = ""
+    provincia: str = ""
 
 
 # ============================================================
@@ -218,6 +244,57 @@ def asignar_municipio(datos: Asignacion):
 
 
 # ============================================================
+# PUNTOS DE PARTIDA (BASES DE SALIDA)
+# ============================================================
+@router.get("/puntos-partida")
+def obtener_puntos_partida():
+    """Bases de salida reutilizables entre manifiestos."""
+    return {"puntos": listar_puntos_partida()}
+
+
+@router.post("/puntos-partida", dependencies=[Depends(verificar_admin)])
+def crear_punto_partida(datos: PuntoPartidaNuevo):
+    """Crea una base de salida (o actualiza la que tenga ese nombre)."""
+    nombre = datos.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+    if not -90 <= datos.lat <= 90:
+        raise HTTPException(status_code=400, detail="La latitud debe estar entre -90 y 90")
+    if not -180 <= datos.lon <= 180:
+        raise HTTPException(status_code=400, detail="La longitud debe estar entre -180 y 180")
+
+    punto_id = guardar_punto_partida(
+        nombre, datos.direccion.strip(), datos.lat, datos.lon
+    )
+    return {"id": punto_id, "puntos": listar_puntos_partida()}
+
+
+@router.post("/puntos-partida/buscar", dependencies=[Depends(verificar_admin)])
+def buscar_punto_partida(datos: BusquedaSalida):
+    """Busca coordenadas para la dirección escrita de una base de salida."""
+    partes = [datos.direccion, datos.municipio, datos.provincia]
+    consulta = ", ".join(parte.strip() for parte in partes if parte.strip())
+    if not consulta:
+        raise HTTPException(status_code=400, detail="Escribe una dirección para buscar")
+
+    try:
+        ubicacion = geocodificar_texto(f"{consulta}, Cuba")
+    except GeocodificacionError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    if ubicacion is None:
+        return {"lat": None, "lon": None}
+    return {"lat": ubicacion[0], "lon": ubicacion[1]}
+
+
+@router.delete("/puntos-partida/{punto_id}", dependencies=[Depends(verificar_admin)])
+def borrar_punto_partida(punto_id: int):
+    """Borra una base; los repartidores que salían de ella vuelven a la cabecera."""
+    eliminar_punto_partida(punto_id)
+    return {"puntos": listar_puntos_partida()}
+
+
+# ============================================================
 # RESUMEN DE LA PROVINCIA
 # ============================================================
 @router.get("/{manifiesto_id}")
@@ -287,6 +364,36 @@ def resumen_de_rutas(manifiesto_id: int, provincia: str = Query(...)):
     }
 
 
+@router.get("/{manifiesto_id}/salida")
+def salida_de_ruta(
+    manifiesto_id: int,
+    provincia: str = Query(...),
+    repartidor: str = Query(...),
+):
+    """Punto desde el que arranca la ruta del repartidor."""
+    guardadas = obtener_geocodificaciones([clave_origen(provincia)])
+    origen = resolver_origen(
+        obtener_salida(manifiesto_id, provincia, repartidor),
+        _coordenadas_de_origen(provincia, guardadas),
+    )
+    return {"origen": origen}
+
+
+@router.put("/{manifiesto_id}/salida", dependencies=[Depends(verificar_admin)])
+def asignar_salida(manifiesto_id: int, datos: AsignacionSalida):
+    """Fija de qué base sale el repartidor (sin punto, vuelve a la cabecera)."""
+    repartidor = datos.repartidor.strip()
+    if not repartidor:
+        raise HTTPException(status_code=400, detail="Hay que indicar el repartidor")
+    if datos.punto_id is not None and datos.punto_id not in {
+        punto["id"] for punto in listar_puntos_partida()
+    }:
+        raise HTTPException(status_code=404, detail="Ese punto de partida no existe")
+
+    guardar_salida(manifiesto_id, datos.provincia, repartidor, datos.punto_id)
+    return {"repartidor": repartidor, "punto_id": datos.punto_id}
+
+
 # ============================================================
 # RUTA DE UN REPARTIDOR
 # ============================================================
@@ -296,9 +403,10 @@ def _ruta_calculada(
     """
     Paradas del repartidor ordenadas de la más cercana a la siguiente.
 
-    La ruta arranca en la cabecera de la provincia (geocodificada como
-    "Provincia, Cuba") y termina en la última entrega: es un recorrido abierto,
-    no un ida y vuelta al almacén. La usan la pantalla y el Excel, para que la
+    La ruta arranca en la base de salida del repartidor o, si no tiene una
+    asignada, en la cabecera de la provincia (geocodificada como
+    "Provincia, Cuba"). Termina en la última entrega: es un recorrido abierto,
+    no un ida y vuelta a la base. La usan la pantalla y el Excel, para que la
     hoja salga en el mismo orden.
     """
     paradas = _paradas_de_provincia(manifiesto_id, provincia)
@@ -316,6 +424,7 @@ def _ruta_calculada(
             "total_peso": 0,
             "sin_ubicar": 0,
             "aproximadas": 0,
+            "origen": None,
             "mensaje": "Este repartidor no tiene municipios asignados en esta provincia.",
         }
 
@@ -330,7 +439,14 @@ def _ruta_calculada(
     for parada in paradas:
         _aplicar_coordenadas(parada, guardadas, correcciones)
 
-    resultado = ordenar_paradas(_coordenadas_de_origen(provincia, guardadas), paradas)
+    origen = resolver_origen(
+        obtener_salida(manifiesto_id, provincia, nombre),
+        _coordenadas_de_origen(provincia, guardadas),
+    )
+    punto_origen = (
+        (origen["lat"], origen["lon"]) if origen["tipo"] != "primera_parada" else None
+    )
+    resultado = ordenar_paradas(punto_origen, paradas)
 
     ordenadas = []
     for posicion, parada in enumerate(resultado["orden"], start=1):
@@ -341,6 +457,7 @@ def _ruta_calculada(
         "repartidor": nombre,
         "provincia": provincia,
         "municipios": sorted(municipios),
+        "origen": origen,
         "paradas": ordenadas,
         "distancia_km": resultado["distancia_km"],
         "total_paradas": len(ordenadas),

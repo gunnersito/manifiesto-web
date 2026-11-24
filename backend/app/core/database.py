@@ -257,6 +257,31 @@ def init_db():
         )
     """)
 
+    # Bases de salida reutilizables (almacenes, casas de los repartidores...).
+    # El repartidor elige una en cada manifiesto y provincia; si no elige,
+    # la ruta sale de la cabecera provincial.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS puntos_partida (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT UNIQUE NOT NULL,
+            direccion TEXT NOT NULL DEFAULT '',
+            lat DOUBLE PRECISION NOT NULL,
+            lon DOUBLE PRECISION NOT NULL,
+            actualizado_en TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS salidas_ruta (
+            id SERIAL PRIMARY KEY,
+            manifiesto_id INTEGER NOT NULL REFERENCES manifiestos(id) ON DELETE CASCADE,
+            provincia TEXT NOT NULL,
+            repartidor TEXT NOT NULL,
+            punto_id INTEGER NOT NULL REFERENCES puntos_partida(id) ON DELETE CASCADE,
+            UNIQUE (manifiesto_id, provincia, repartidor)
+        )
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -957,6 +982,131 @@ def eliminar_correccion(clave: str) -> None:
     try:
         with conn.cursor() as cursor:
             cursor.execute("DELETE FROM correcciones_parada WHERE clave = %s", (clave,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================
+# PUNTOS DE PARTIDA (BASES DE SALIDA)
+# ============================================================
+def listar_puntos_partida() -> list[dict]:
+    """Bases de salida dadas de alta, en orden alfabético."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, nombre, direccion, lat, lon FROM puntos_partida "
+                "ORDER BY lower(nombre)"
+            )
+            return [
+                {
+                    "id": fila[0],
+                    "nombre": fila[1],
+                    "direccion": fila[2] or "",
+                    "lat": fila[3],
+                    "lon": fila[4],
+                }
+                for fila in cursor.fetchall()
+            ]
+    finally:
+        conn.close()
+
+
+def guardar_punto_partida(
+    nombre: str, direccion: str, lat: float, lon: float
+) -> int:
+    """Da de alta una base de salida o actualiza la que tenga ese nombre."""
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO puntos_partida (nombre, direccion, lat, lon, actualizado_en)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (nombre) DO UPDATE SET
+                    direccion = EXCLUDED.direccion,
+                    lat = EXCLUDED.lat,
+                    lon = EXCLUDED.lon,
+                    actualizado_en = EXCLUDED.actualizado_en
+                RETURNING id
+                """,
+                (nombre, direccion, lat, lon, ahora),
+            )
+            punto_id = cursor.fetchone()[0]
+        conn.commit()
+        return punto_id
+    finally:
+        conn.close()
+
+
+def eliminar_punto_partida(punto_id: int) -> None:
+    """Borra una base de salida; las rutas que la usaban vuelven a la cabecera."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM puntos_partida WHERE id = %s", (punto_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def obtener_salida(
+    manifiesto_id: int, provincia: str, repartidor: str
+) -> dict | None:
+    """Base de salida elegida por el repartidor, o None si no tiene."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id, p.nombre, p.direccion, p.lat, p.lon
+                FROM salidas_ruta s
+                JOIN puntos_partida p ON p.id = s.punto_id
+                WHERE s.manifiesto_id = %s AND s.provincia = %s
+                  AND s.repartidor = %s
+                """,
+                (manifiesto_id, provincia, repartidor),
+            )
+            fila = cursor.fetchone()
+            if fila is None:
+                return None
+            return {
+                "id": fila[0],
+                "nombre": fila[1],
+                "direccion": fila[2] or "",
+                "lat": fila[3],
+                "lon": fila[4],
+            }
+    finally:
+        conn.close()
+
+
+def guardar_salida(
+    manifiesto_id: int, provincia: str, repartidor: str, punto_id: int | None
+) -> None:
+    """Fija la base de salida del repartidor; sin punto, la quita."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if punto_id is None:
+                cursor.execute(
+                    "DELETE FROM salidas_ruta WHERE manifiesto_id = %s "
+                    "AND provincia = %s AND repartidor = %s",
+                    (manifiesto_id, provincia, repartidor),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO salidas_ruta
+                        (manifiesto_id, provincia, repartidor, punto_id)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (manifiesto_id, provincia, repartidor)
+                    DO UPDATE SET punto_id = EXCLUDED.punto_id
+                    """,
+                    (manifiesto_id, provincia, repartidor, punto_id),
+                )
         conn.commit()
     finally:
         conn.close()

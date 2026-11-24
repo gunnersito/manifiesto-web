@@ -24,6 +24,7 @@ from app.services.rutas_service import (  # noqa: E402
     distancia_km,
     haversine_km,
     ordenar_paradas,
+    resolver_origen,
 )
 
 
@@ -155,6 +156,36 @@ def test_el_excel_de_la_ruta_respeta_el_orden_de_la_pantalla():
     # Una parada sin ubicar no lleva kilómetros: la celda queda vacía.
     assert pd.isna(kms[1])
     assert list(tabla["Ubicación"].head(2)) == ["Exacta", "Sin ubicar"]
+
+
+def test_la_base_del_repartidor_manda_sobre_la_cabecera():
+    origen = resolver_origen(
+        {
+            "id": 3,
+            "nombre": "Almacén Central",
+            "direccion": "Calle Martí 120",
+            "lat": 22.41,
+            "lon": -83.69,
+        },
+        (22.31, -83.94),
+    )
+
+    assert origen["tipo"] == "base"
+    assert origen["etiqueta"] == "Almacén Central"
+    assert origen["punto_id"] == 3
+    assert (origen["lat"], origen["lon"]) == (22.41, -83.69)
+
+
+def test_sin_base_se_usa_la_cabecera_y_sin_nada_la_primera_parada():
+    cabecera = resolver_origen(None, (22.31, -83.94))
+    assert cabecera["tipo"] == "cabecera"
+    assert cabecera["etiqueta"] == "Cabecera provincial"
+    assert (cabecera["lat"], cabecera["lon"]) == (22.31, -83.94)
+
+    sin_nada = resolver_origen(None, None)
+    assert sin_nada["tipo"] == "primera_parada"
+    assert sin_nada["lat"] is None
+    assert sin_nada["lon"] is None
 
 
 def test_la_correccion_a_mano_manda_sobre_la_cache():

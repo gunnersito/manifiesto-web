@@ -513,10 +513,32 @@ export interface ParadaRuta {
   tramo_km: number | null;
 }
 
+export interface PuntoPartida {
+  id: number;
+  nombre: string;
+  direccion: string;
+  lat: number;
+  lon: number;
+}
+
+// De dónde arranca la ruta: una base del catálogo, la cabecera provincial o,
+// si no hay coordenadas, la primera parada.
+export type TipoOrigenRuta = "base" | "cabecera" | "primera_parada";
+
+export interface OrigenRuta {
+  lat: number | null;
+  lon: number | null;
+  etiqueta: string | null;
+  tipo: TipoOrigenRuta;
+  punto_id: number | null;
+  direccion: string;
+}
+
 export interface RutaRepartidor {
   repartidor: string;
   provincia: string;
   municipios?: string[];
+  origen?: OrigenRuta | null;
   paradas: ParadaRuta[];
   distancia_km: number;
   total_paradas: number;
@@ -672,4 +694,54 @@ export async function buscarUbicacionParada(
     { timeout: 60000 }
   );
   return response.data;
+}
+
+
+// ============================================================
+// PUNTOS DE PARTIDA (BASES DE SALIDA)
+// ============================================================
+export async function obtenerPuntosPartida(): Promise<PuntoPartida[]> {
+  const response = await api.get("/rutas/puntos-partida");
+  return response.data.puntos;
+}
+
+export async function crearPuntoPartida(datos: {
+  nombre: string;
+  direccion: string;
+  lat: number;
+  lon: number;
+}): Promise<{ puntos: PuntoPartida[]; id: number }> {
+  const response = await api.post("/rutas/puntos-partida", datos);
+  return response.data;
+}
+
+export async function eliminarPuntoPartida(id: number): Promise<PuntoPartida[]> {
+  const response = await api.delete(`/rutas/puntos-partida/${id}`);
+  return response.data.puntos;
+}
+
+export async function buscarPuntoPartida(
+  direccion: string,
+  municipio: string,
+  provincia: string
+): Promise<{ lat: number | null; lon: number | null }> {
+  const response = await api.post(
+    "/rutas/puntos-partida/buscar",
+    { direccion, municipio, provincia },
+    { timeout: 60000 }
+  );
+  return response.data;
+}
+
+export async function asignarSalidaRuta(
+  manifiestoId: number,
+  provincia: string,
+  repartidor: string,
+  puntoId: number | null
+): Promise<void> {
+  await api.put(`/rutas/${manifiestoId}/salida`, {
+    provincia,
+    repartidor,
+    punto_id: puntoId,
+  });
 }

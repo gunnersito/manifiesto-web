@@ -434,7 +434,9 @@ export interface UsuarioSistema {
 }
 
 export const obtenerUsuarios = async () => {
-  const res = await api.get('/usuarios');
+  // Con la barra final: la ruta del backend es "/usuarios/", y sin ella el
+  // servidor responde 307 y el navegador no llega a cargar el listado.
+  const res = await api.get('/usuarios/');
   return res.data;
 };
 

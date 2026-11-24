@@ -3,7 +3,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, UserPlus, Loader2, ShieldAlert, Edit2, X } from "lucide-react";
+import { Trash2, UserPlus, Loader2, ShieldAlert, Edit2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,6 +75,7 @@ export default function ConfiguracionPage() {
     setCreando(true);
     try {
       await crearUsuario(nuevoUser);
+      toast.success(`Usuario ${nuevoUser.username} creado.`);
       setNuevoUser({ username: "", password: "", role: "guest" });
       setConfirmPasswordCreate(""); // Limpiar
       cargarUsuarios();
@@ -101,6 +102,7 @@ export default function ConfiguracionPage() {
         password: editPassword || undefined,
         role: editRole,
       });
+      toast.success(`Usuario ${usuarioEditando.username} actualizado.`);
       setUsuarioEditando(null);
       setEditPassword("");
       setEditPasswordConfirm(""); // Limpiar también el confirm
@@ -236,7 +238,7 @@ export default function ConfiguracionPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200">
           <h2 className="text-xl font-semibold flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-slate-600" />
+            <Users className="w-5 h-5 text-slate-600" />
             Usuarios registrados
           </h2>
         </div>
@@ -267,7 +269,13 @@ export default function ConfiguracionPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {u.username === "admin" ? (
-                      <span className="text-xs text-slate-400 italic">Protegido</span>
+                      <span
+                        className="inline-flex p-2 text-slate-300"
+                        title="Usuario protegido: no se puede editar ni eliminar"
+                      >
+                        <Lock className="w-4 h-4" />
+                        <span className="sr-only">Protegido</span>
+                      </span>
                     ) : (
                       <div className="flex justify-end gap-1">
                         <button
@@ -303,96 +311,88 @@ export default function ConfiguracionPage() {
       </div>
 
       {/* MODAL DE EDICIÓN */}
-      {usuarioEditando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold text-slate-900">Editar a {usuarioEditando.username}</h3>
-              <button onClick={() => setUsuarioEditando(null)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
+      <Modal
+        isOpen={usuarioEditando !== null}
+        onClose={() => setUsuarioEditando(null)}
+        title={`Editar a ${usuarioEditando?.username ?? ""}`}
+      >
+        <form onSubmit={handleActualizarUsuario} className="space-y-4">
+          <div>
+            <Label className="mb-2 block">Nueva contraseña (opcional)</Label>
+            <div className="relative">
+              <Input
+                minLength={8}
+                type={showPassEdit ? "text" : "password"}
+                placeholder="Dejar en blanco para no cambiar"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                onInvalid={(e) =>
+                  e.currentTarget.setCustomValidity(
+                    "La contraseña debe tener al menos 8 caracteres."
+                  )
+                }
+                onInput={(e) => e.currentTarget.setCustomValidity("")}
+                className={`bg-white !h-[42px] pr-10 ${
+                  editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : ""
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassEdit(!showPassEdit)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showPassEdit ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-
-            <form onSubmit={handleActualizarUsuario} className="p-6 space-y-4">
-              <div>
-                <Label className="mb-2 block">Nueva Contraseña (opcional)</Label>
-                <div className="relative">
-                  <Input
-                    minLength={8}
-                    type={showPassEdit ? "text" : "password"}
-                    placeholder="Dejar en blanco para no cambiar"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    onInvalid={(e) =>
-                      e.currentTarget.setCustomValidity(
-                        "La contraseña debe tener al menos 8 caracteres."
-                      )
-                    }
-                    onInput={(e) => e.currentTarget.setCustomValidity("")}
-                    className={`bg-white !h-[42px] pr-10 ${
-                      editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm 
-                        ? "border-red-500 focus-visible:ring-red-500" 
-                        : ""
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassEdit(!showPassEdit)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  >
-                    {showPassEdit ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Campo Confirmar Contraseña (solo aparece si se escribe algo en el primero) */}
-              {editPassword && (
-                <div>
-                  <Label className="mb-2 block">Confirmar Contraseña</Label>
-                  <Input
-                    type="password"
-                    placeholder="Repite la nueva contraseña"
-                    value={editPasswordConfirm}
-                    onChange={(e) => setEditPasswordConfirm(e.target.value)}
-                    className={`bg-white !h-[42px] ${
-                      editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm 
-                        ? "border-red-500 focus-visible:ring-red-500" 
-                        : ""
-                    }`}
-                  />
-                  {/* 👇 AQUÍ ESTÁ EL MENSAJE AHORA 👇 */}
-                  {editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm && (
-                    <p className="text-xs text-red-500 mt-1.5 font-medium">
-                      Las contraseñas no coinciden.
-                    </p>
-                  )}
-                </div>
-              )}
-              <div>
-                <Label className="mb-2 block">Rol</Label>
-                <Select value={editRole} onValueChange={(v) => setEditRole(v || "guest")}>
-                  <SelectTrigger className="w-full !h-[42px] bg-white px-3 py-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
-                    <SelectItem value="guest">guest</SelectItem>
-                    <SelectItem value="admin">admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setUsuarioEditando(null)} className="!h-[42px]">
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={guardandoEdit} className="bg-primary hover:bg-primary/90 !h-[42px]">
-                  {guardandoEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar Cambios"}
-                </Button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+
+          {/* Campo Confirmar Contraseña (solo aparece si se escribe algo en el primero) */}
+          {editPassword && (
+            <div>
+              <Label className="mb-2 block">Confirmar contraseña</Label>
+              <Input
+                type="password"
+                placeholder="Repite la nueva contraseña"
+                value={editPasswordConfirm}
+                onChange={(e) => setEditPasswordConfirm(e.target.value)}
+                className={`bg-white !h-[42px] ${
+                  editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : ""
+                }`}
+              />
+              {editPassword && editPasswordConfirm && editPassword !== editPasswordConfirm && (
+                <p className="text-xs text-red-500 mt-1.5 font-medium">
+                  Las contraseñas no coinciden.
+                </p>
+              )}
+            </div>
+          )}
+          <div>
+            <Label className="mb-2 block">Rol</Label>
+            <Select value={editRole} onValueChange={(v) => setEditRole(v || "guest")}>
+              <SelectTrigger className="w-full !h-[42px] bg-white px-3 py-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectItem value="guest">guest</SelectItem>
+                <SelectItem value="admin">admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => setUsuarioEditando(null)} className="!h-[42px]">
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={guardandoEdit} className="bg-primary hover:bg-primary/90 !h-[42px]">
+              {guardandoEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar cambios"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
       {/* Modal de Confirmación de Eliminación */}
       <Modal
           isOpen={usuarioAEliminar !== null}

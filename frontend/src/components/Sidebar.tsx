@@ -147,7 +147,7 @@ export default function Sidebar() {
 
       <aside
         id="sidebar-principal"
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 ${
           abierto ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "lg:w-64"}`}
       >

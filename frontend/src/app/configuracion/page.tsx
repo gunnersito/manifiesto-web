@@ -142,7 +142,7 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 py-8 px-4">
+    <div className="w-full space-y-8 py-8 px-4">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Configuración</h1>
         <p className="text-slate-500 mt-1">Gestiona los accesos y usuarios del sistema</p>

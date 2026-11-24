@@ -68,7 +68,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+      {/* Sin tope de ancho: el contenido ocupa el espacio que deja la barra */}
+      <div className="w-full space-y-6">
 
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-900">

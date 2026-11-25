@@ -339,6 +339,24 @@ export default function RutasPage() {
       setErrorBase("Escribe la latitud y la longitud de la base");
       return;
     }
+    // Si el lugar elegido está en otra provincia, no basta con avisar: hay que
+    // confirmarlo antes de crear la base.
+    const fueraDeProvincia =
+      resultadoSel !== null ? resultadosBase[resultadoSel] : null;
+    if (fueraDeProvincia?.misma_provincia === false) {
+      const confirmado = window.confirm(
+        `El lugar elegido está en ${fueraDeProvincia.provincia}, no en ${provincia}. ` +
+          "Si guardas la base ahí, la ruta saldrá de otra provincia. " +
+          "¿Guardar de todas formas?"
+      );
+      if (!confirmado) {
+        setErrorBase(
+          `No se guardó la base: el lugar está en ${fueraDeProvincia.provincia}, ` +
+            `no en ${provincia}. Elige otro resultado.`
+        );
+        return;
+      }
+    }
     setGuardandoBase(true);
     try {
       const { puntos: actualizados, id } = await crearPuntoPartida({
@@ -1228,8 +1246,8 @@ export default function RutasPage() {
                         className="rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800"
                       >
                         Ese lugar está en {resultadosBase[resultadoSel].provincia},
-                        no en {provincia}. Si guardas la base ahí, la ruta saldrá de
-                        otra provincia.
+                        no en {provincia}: la ruta saldría de otra provincia. Al
+                        guardar se te pedirá confirmación.
                       </p>
                     )}
                 </div>
@@ -1247,11 +1265,13 @@ export default function RutasPage() {
                 <input
                   id="base-lat"
                   value={nuevaBase.lat}
-                  onChange={(evento) =>
+                  onChange={(evento) => {
                     setNuevaBase((actual) =>
                       actual ? { ...actual, lat: evento.target.value } : actual
-                    )
-                  }
+                    );
+                    // Con coordenadas a mano el lugar elegido ya no manda.
+                    setResultadoSel(null);
+                  }}
                   inputMode="decimal"
                   placeholder="22.4136"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
@@ -1267,11 +1287,13 @@ export default function RutasPage() {
                 <input
                   id="base-lon"
                   value={nuevaBase.lon}
-                  onChange={(evento) =>
+                  onChange={(evento) => {
                     setNuevaBase((actual) =>
                       actual ? { ...actual, lon: evento.target.value } : actual
-                    )
-                  }
+                    );
+                    // Con coordenadas a mano el lugar elegido ya no manda.
+                    setResultadoSel(null);
+                  }}
                   inputMode="decimal"
                   placeholder="-83.6880"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"

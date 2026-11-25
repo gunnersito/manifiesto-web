@@ -330,7 +330,7 @@ def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
     Excel de la ruta de un repartidor, en el mismo orden que la pantalla.
 
     Columnas: Parada | Municipio | Dirección | Destinatario | Teléfono | HBLs |
-    Bultos | Peso (Kg) | Estado | Km | Ubicación
+    Bultos | Peso (Kg) | Estado | Km acumulados | Ubicación
     """
     etiquetas_precision = {
         "direccion": "Exacta",
@@ -350,7 +350,9 @@ def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
             "Bultos": parada["bultos"],
             "Peso (Kg)": round(parada["peso"], 1),
             "Estado": parada["estado"],
-            "Km": parada["tramo_km"] if parada["tramo_km"] is not None else "",
+            "Km acumulados": (
+                parada["tramo_km"] if parada["tramo_km"] is not None else ""
+            ),
             "Ubicación": etiquetas_precision.get(parada["precision"], "Sin ubicar"),
         }
         for parada in ruta["paradas"]
@@ -358,7 +360,7 @@ def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
 
     columnas = [
         "Parada", "Municipio", "Dirección", "Destinatario", "Teléfono",
-        "HBLs", "Bultos", "Peso (Kg)", "Estado", "Km", "Ubicación",
+        "HBLs", "Bultos", "Peso (Kg)", "Estado", "Km acumulados", "Ubicación",
     ]
     tabla = pd.DataFrame(filas, columns=columnas)
 

@@ -147,11 +147,11 @@ def test_el_excel_de_la_ruta_respeta_el_orden_de_la_pantalla():
 
     assert list(tabla.columns) == [
         "Parada", "Municipio", "Dirección", "Destinatario", "Teléfono", "HBLs",
-        "Bultos", "Peso (Kg)", "Estado", "Km", "Ubicación",
+        "Bultos", "Peso (Kg)", "Estado", "Km acumulados", "Ubicación",
     ]
     assert list(tabla["Parada"].head(2)) == [1, 2]
     assert list(tabla["Dirección"].head(2)) == ["Calle 30 #1503", "Calle Martí 120"]
-    kms = list(tabla["Km"].head(2))
+    kms = list(tabla["Km acumulados"].head(2))
     assert kms[0] == 18.4
     # Una parada sin ubicar no lleva kilómetros: la celda queda vacía.
     assert pd.isna(kms[1])

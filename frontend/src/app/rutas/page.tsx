@@ -1015,10 +1015,10 @@ export default function RutasPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <p className="truncate font-medium text-slate-900">
+                            <p className="min-w-0 flex-1 truncate font-medium text-slate-900">
                               {parada.direccion || "Sin dirección"}
                             </p>
-                            <span className="text-xs font-medium text-slate-500">
+                            <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-slate-500">
                               {parada.tramo_km != null
                                 ? `${parada.tramo_km} km`
                                 : "sin ubicar"}

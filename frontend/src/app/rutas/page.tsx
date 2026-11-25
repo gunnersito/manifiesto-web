@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
@@ -101,6 +102,15 @@ export default function RutasPage() {
   const [respaldoBase, setRespaldoBase] = useState(false);
   const [resultadoSel, setResultadoSel] = useState<number | null>(null);
   const [errorBase, setErrorBase] = useState<string | null>(null);
+  // Confirmación pendiente, siempre con el mismo modal del resto de la app.
+  const [confirmacion, setConfirmacion] = useState<{
+    titulo: string;
+    mensaje: ReactNode;
+    accion: string;
+    peligro?: boolean;
+    alConfirmar: () => void;
+    alCancelar?: () => void;
+  } | null>(null);
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
@@ -186,11 +196,21 @@ export default function RutasPage() {
     }
   };
 
-  const borrarRepartidor = async (nombre: string) => {
-    const confirmado = window.confirm(
-      `¿Eliminar a ${nombre}? Sus municipios quedarán sin asignar.`
-    );
-    if (!confirmado) return;
+  const borrarRepartidor = (nombre: string) => {
+    setConfirmacion({
+      titulo: "Confirmar eliminación",
+      mensaje: (
+        <>
+          ¿Eliminar a <b>{nombre}</b>? Sus municipios quedarán sin asignar.
+        </>
+      ),
+      accion: "Eliminar",
+      peligro: true,
+      alConfirmar: () => void eliminarRepartidorConfirmado(nombre),
+    });
+  };
+
+  const eliminarRepartidorConfirmado = async (nombre: string) => {
     try {
       setRepartidores(await eliminarRepartidor(nombre));
       if (repartidorSel === nombre) setRepartidorSel("");
@@ -326,37 +346,9 @@ export default function RutasPage() {
     );
   };
 
-  const guardarBase = async () => {
+  // Crea la base y la deja como salida del repartidor.
+  const crearBase = async (nombre: string, lat: number, lon: number) => {
     if (!nuevaBase || !manifiestoId || !repartidorSel) return;
-    const nombre = nuevaBase.nombre.trim();
-    const lat = Number(nuevaBase.lat.replace(",", "."));
-    const lon = Number(nuevaBase.lon.replace(",", "."));
-    if (!nombre) {
-      setErrorBase("Ponle un nombre a la base");
-      return;
-    }
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      setErrorBase("Escribe la latitud y la longitud de la base");
-      return;
-    }
-    // Si el lugar elegido está en otra provincia, no basta con avisar: hay que
-    // confirmarlo antes de crear la base.
-    const fueraDeProvincia =
-      resultadoSel !== null ? resultadosBase[resultadoSel] : null;
-    if (fueraDeProvincia?.misma_provincia === false) {
-      const confirmado = window.confirm(
-        `El lugar elegido está en ${fueraDeProvincia.provincia}, no en ${provincia}. ` +
-          "Si guardas la base ahí, la ruta saldrá de otra provincia. " +
-          "¿Guardar de todas formas?"
-      );
-      if (!confirmado) {
-        setErrorBase(
-          `No se guardó la base: el lugar está en ${fueraDeProvincia.provincia}, ` +
-            `no en ${provincia}. Elige otro resultado.`
-        );
-        return;
-      }
-    }
     setGuardandoBase(true);
     try {
       const { puntos: actualizados, id } = await crearPuntoPartida({
@@ -372,6 +364,7 @@ export default function RutasPage() {
       setRespaldoBase(false);
       setResultadoSel(null);
       setErrorBase(null);
+      setConfirmacion(null);
       setVersionRuta((v) => v + 1);
       toast.success(`${repartidorSel} sale de ${nombre}`);
     } catch (err: any) {
@@ -381,13 +374,64 @@ export default function RutasPage() {
     }
   };
 
-  const borrarBase = async (puntoId: number) => {
+  const guardarBase = async () => {
+    if (!nuevaBase || !manifiestoId || !repartidorSel) return;
+    const nombre = nuevaBase.nombre.trim();
+    const lat = Number(nuevaBase.lat.replace(",", "."));
+    const lon = Number(nuevaBase.lon.replace(",", "."));
+    if (!nombre) {
+      setErrorBase("Ponle un nombre a la base");
+      return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      setErrorBase("Escribe la latitud y la longitud de la base");
+      return;
+    }
+    // Si el lugar elegido está en otra provincia, se confirma con el mismo
+    // modal que usa el resto de la app antes de crear la base.
+    const fueraDeProvincia =
+      resultadoSel !== null ? resultadosBase[resultadoSel] : null;
+    if (fueraDeProvincia?.misma_provincia === false) {
+      const provinciaLugar = fueraDeProvincia.provincia || "otra provincia";
+      setConfirmacion({
+        titulo: "Confirmar base en otra provincia",
+        mensaje: (
+          <>
+            El lugar elegido está en <b>{provinciaLugar}</b>, no en{" "}
+            <b>{provincia}</b>. Si guardas la base ahí, la ruta saldrá de otra
+            provincia. ¿Guardar de todas formas?
+          </>
+        ),
+        accion: "Guardar de todas formas",
+        alConfirmar: () => void crearBase(nombre, lat, lon),
+        alCancelar: () =>
+          setErrorBase(
+            `No se guardó la base: el lugar está en ${provinciaLugar}, no en ${provincia}. Elige otro resultado.`
+          ),
+      });
+      return;
+    }
+    await crearBase(nombre, lat, lon);
+  };
+
+  const borrarBase = (puntoId: number) => {
     const base = puntos.find((punto) => punto.id === puntoId);
     if (!base) return;
-    const confirmado = window.confirm(
-      `¿Eliminar la base ${base.nombre}? Los repartidores que salían de ella pasarán a la cabecera provincial.`
-    );
-    if (!confirmado) return;
+    setConfirmacion({
+      titulo: "Confirmar eliminación de la base",
+      mensaje: (
+        <>
+          ¿Eliminar la base <b>{base.nombre}</b>? Los repartidores que salían de
+          ella pasarán a la cabecera provincial.
+        </>
+      ),
+      accion: "Eliminar",
+      peligro: true,
+      alConfirmar: () => void eliminarBaseConfirmada(puntoId),
+    });
+  };
+
+  const eliminarBaseConfirmada = async (puntoId: number) => {
     try {
       setPuntos(await eliminarPuntoPartida(puntoId));
       setVersionRuta((v) => v + 1);
@@ -764,6 +808,7 @@ export default function RutasPage() {
                             setRespaldoBase(false);
                             setResultadoSel(null);
                             setErrorBase(null);
+                            setConfirmacion(null);
                           }}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 font-medium text-slate-700 transition-colors hover:bg-slate-50"
                         >
@@ -1099,7 +1144,10 @@ export default function RutasPage() {
 
       <Modal
         isOpen={nuevaBase !== null}
-        onClose={() => setNuevaBase(null)}
+        onClose={() => {
+          setNuevaBase(null);
+          setConfirmacion(null);
+        }}
         title="Nueva base de salida"
       >
         {nuevaBase && (
@@ -1114,11 +1162,12 @@ export default function RutasPage() {
               <input
                 id="base-nombre"
                 value={nuevaBase.nombre}
-                onChange={(evento) =>
+                onChange={(evento) => {
                   setNuevaBase((actual) =>
                     actual ? { ...actual, nombre: evento.target.value } : actual
-                  )
-                }
+                  );
+                  setErrorBase(null);
+                }}
                 placeholder="Almacén Pinar del Río"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
@@ -1304,7 +1353,10 @@ export default function RutasPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setNuevaBase(null)}
+                onClick={() => {
+                  setNuevaBase(null);
+                  setConfirmacion(null);
+                }}
                 className="rounded-lg px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100"
               >
                 Cancelar
@@ -1321,6 +1373,40 @@ export default function RutasPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={confirmacion !== null}
+        onClose={() => setConfirmacion(null)}
+        title={confirmacion?.titulo ?? "Confirmar"}
+      >
+        <p className="mb-6 text-slate-600">{confirmacion?.mensaje}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => {
+              const cancelar = confirmacion?.alCancelar;
+              setConfirmacion(null);
+              cancelar?.();
+            }}
+            className="rounded-lg px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-100"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => {
+              const accion = confirmacion?.alConfirmar;
+              setConfirmacion(null);
+              accion?.();
+            }}
+            className={`rounded-lg px-4 py-2 font-medium text-white transition-colors ${
+              confirmacion?.peligro
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-primary hover:bg-primary/90"
+            }`}
+          >
+            {confirmacion?.accion}
+          </button>
+        </div>
       </Modal>
     </main>
   );

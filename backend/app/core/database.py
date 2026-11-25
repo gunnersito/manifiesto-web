@@ -866,6 +866,34 @@ def guardar_asignacion(
         conn.close()
 
 
+def asignar_municipios(
+    manifiesto_id: int, provincia: str, municipios: list, repartidor: str
+) -> int:
+    """Asigna de una vez varios municipios al mismo repartidor."""
+    if not municipios:
+        return 0
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO asignaciones_repartidor
+                    (manifiesto_id, provincia, municipio, repartidor)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (manifiesto_id, provincia, municipio)
+                DO UPDATE SET repartidor = EXCLUDED.repartidor
+                """,
+                [
+                    (manifiesto_id, provincia, municipio, repartidor)
+                    for municipio in municipios
+                ],
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return len(municipios)
+
+
 # ============================================================
 # GEOCODIFICACIÓN (caché de coordenadas)
 # ============================================================

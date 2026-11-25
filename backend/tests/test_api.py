@@ -410,6 +410,73 @@ def test_el_resumen_de_provincia_sale_de_la_tabla_hbls(cliente):
     assert ajeno.status_code == 404, ajeno.text
 
 
+def _agregar_municipio(manifiesto_id: int, hbl: str, municipio: str) -> None:
+    """Suma una parada de otro municipio al manifiesto de prueba."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO hbls (
+                    manifiesto_id, hbl, provincia, municipio, direccion,
+                    remitente, destinatario, telefono, contenido,
+                    bultos, peso, parada, datos_extra
+                ) VALUES (%s, %s, 'PROVINCIA-PRUEBA', %s, 'CALLE 3', '', '', '', '', 1, 1, 1, '{}')
+                """,
+                (manifiesto_id, hbl, municipio),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_asignar_todos_los_municipios_de_una_vez(cliente):
+    """Un solo gesto asigna los municipios de la provincia a un repartidor."""
+    _login(cliente, *ADMIN)
+    manifiesto_id = _crear_manifiesto_con_paradas()
+    _agregar_municipio(manifiesto_id, "PRUEBA-PARADA-C", "OTRO-MUNICIPIO")
+    repartidor = "PRUEBA-REPARTIDOR"
+    datos = {
+        "manifiesto_id": manifiesto_id,
+        "provincia": "PROVINCIA-PRUEBA",
+        "repartidor": repartidor,
+    }
+
+    alta = cliente.post("/api/rutas/repartidores", json={"nombre": repartidor})
+    assert alta.status_code == 200, alta.text
+    try:
+        respuesta = cliente.put("/api/rutas/asignaciones/todos", json=datos)
+        assert respuesta.status_code == 200, respuesta.text
+        assert respuesta.json()["municipios"] == [
+            "MUNICIPIO-PRUEBA",
+            "OTRO-MUNICIPIO",
+        ]
+
+        resumen = cliente.get(
+            f"/api/rutas/{manifiesto_id}", params={"provincia": "PROVINCIA-PRUEBA"}
+        )
+        assert resumen.status_code == 200, resumen.text
+        assert [m["repartidor"] for m in resumen.json()["municipios"]] == [
+            repartidor,
+            repartidor,
+        ]
+
+        # Un repartidor que no existe se rechaza sin tocar las asignaciones.
+        ajeno = cliente.put(
+            "/api/rutas/asignaciones/todos", json={**datos, "repartidor": "NO-EXISTE"}
+        )
+        assert ajeno.status_code == 404, ajeno.text
+        assert [
+            m["repartidor"]
+            for m in cliente.get(
+                f"/api/rutas/{manifiesto_id}",
+                params={"provincia": "PROVINCIA-PRUEBA"},
+            ).json()["municipios"]
+        ] == [repartidor, repartidor]
+    finally:
+        cliente.delete(f"/api/rutas/repartidores/{repartidor}")
+
+
 def test_las_exportaciones_salen_de_la_tabla_hbls(cliente):
     """Las cuatro exportaciones se generan con las filas guardadas, sin Excel."""
     _login(cliente, *ADMIN)

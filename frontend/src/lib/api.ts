@@ -649,6 +649,21 @@ export async function asignarRepartidor(
 }
 
 
+// Asigna todos los municipios de la provincia a un mismo repartidor.
+export async function asignarRepartidorATodos(
+  manifiestoId: number,
+  provincia: string,
+  repartidor: string
+): Promise<{ repartidor: string; municipios: string[] }> {
+  const response = await api.put("/rutas/asignaciones/todos", {
+    manifiesto_id: manifiestoId,
+    provincia,
+    repartidor,
+  });
+  return response.data;
+}
+
+
 // Descarga la ruta de un repartidor en Excel, en el mismo orden que la pantalla.
 export async function descargarRutaRepartidorExcel(
   manifiestoId: number,

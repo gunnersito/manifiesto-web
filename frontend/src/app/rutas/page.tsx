@@ -26,6 +26,7 @@ import { useManifiesto } from "@/contexts/ManifiestoContext";
 import { ORDEN_PROVINCIAS } from "@/lib/provincias";
 import {
   asignarRepartidor,
+  asignarRepartidorATodos,
   asignarSalidaRuta,
   buscarPuntoPartida,
   buscarUbicacionParada,
@@ -72,6 +73,7 @@ export default function RutasPage() {
   const [repartidores, setRepartidores] = useState<string[]>([]);
   const [puntos, setPuntos] = useState<PuntoPartida[]>([]);
   const [nuevoRepartidor, setNuevoRepartidor] = useState("");
+  const [asignandoTodos, setAsignandoTodos] = useState(false);
   const [repartidorSel, setRepartidorSel] = useState("");
   const [ruta, setRuta] = useState<RutaRepartidor | null>(null);
   const [cargandoRuta, setCargandoRuta] = useState(false);
@@ -231,6 +233,55 @@ export default function RutasPage() {
     } catch {
       toast.error("No se pudo guardar la asignación");
     }
+  };
+
+  // Asigna de una vez todos los municipios de la provincia al mismo repartidor.
+  const asignarTodosAMunicipios = async (nombre: string) => {
+    if (!manifiestoId) return;
+    setAsignandoTodos(true);
+    try {
+      const { municipios } = await asignarRepartidorATodos(
+        manifiestoId,
+        provincia,
+        nombre
+      );
+      toast.success(
+        `${municipios.length} municipio(s) asignados a ${nombre}`
+      );
+      await cargarResumen();
+      setVersionRuta((v) => v + 1);
+    } catch {
+      toast.error("No se pudieron asignar los municipios");
+    } finally {
+      setAsignandoTodos(false);
+    }
+  };
+
+  const elegirRepartidorParaTodos = (nombre: string) => {
+    if (!manifiestoId || !nombre || !resumen || resumen.municipios.length === 0) {
+      return;
+    }
+    const ajenos = resumen.municipios.filter(
+      (municipio) => municipio.repartidor && municipio.repartidor !== nombre
+    ).length;
+    if (ajenos === 0) {
+      void asignarTodosAMunicipios(nombre);
+      return;
+    }
+    setConfirmacion({
+      titulo: "Confirmar asignación de municipios",
+      mensaje: (
+        <>
+          Se asignarán <b>{resumen.municipios.length}</b> municipios a{" "}
+          <b>{nombre}</b>. {ajenos === 1
+            ? "1 ya tiene otro repartidor y cambiará de dueño."
+            : `${ajenos} ya tienen otro repartidor y cambiarán de dueño.`}{" "}
+          ¿Continuar?
+        </>
+      ),
+      accion: "Asignar todos",
+      alConfirmar: () => void asignarTodosAMunicipios(nombre),
+    });
   };
 
   const prepararCoordenadasDeProvincia = async () => {
@@ -702,9 +753,31 @@ export default function RutasPage() {
                   <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                     <MapPin className="h-5 w-5 text-primary" /> Municipios
                   </h2>
-                  <span className="text-xs text-slate-500">
-                    {resumen.total_paradas} paradas · {resumen.total_bultos} bultos
-                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs text-slate-500">
+                      {resumen.total_paradas} paradas · {resumen.total_bultos} bultos
+                    </span>
+                    {isAdmin && repartidores.length > 0 && (
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        Asignar todos a
+                        <select
+                          value=""
+                          onChange={(evento) =>
+                            elegirRepartidorParaTodos(evento.target.value)
+                          }
+                          disabled={asignandoTodos}
+                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:border-primary focus:outline-none disabled:opacity-60"
+                        >
+                          <option value="">Elegir…</option>
+                          {repartidores.map((nombre) => (
+                            <option key={nombre} value={nombre}>
+                              {nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
                 </div>
                 <div className="max-h-[26rem] overflow-y-auto">
                   <table className="w-full text-sm">

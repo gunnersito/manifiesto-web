@@ -26,6 +26,7 @@ from app.core.config import (
     COL_PROVINCIA,
 )
 from app.core.database import (
+    asignar_municipios,
     crear_repartidor,
     eliminar_correccion,
     eliminar_punto_partida,
@@ -95,6 +96,12 @@ class Asignacion(BaseModel):
     provincia: str
     municipio: str
     repartidor: Optional[str] = None
+
+
+class AsignacionMultiple(BaseModel):
+    manifiesto_id: int
+    provincia: str
+    repartidor: str
 
 
 class CorreccionParada(BaseModel):
@@ -242,6 +249,26 @@ def asignar_municipio(datos: Asignacion):
         datos.manifiesto_id, datos.provincia, datos.municipio, repartidor
     )
     return {"municipio": datos.municipio, "repartidor": repartidor}
+
+
+@router.put("/asignaciones/todos", dependencies=[Depends(verificar_admin)])
+def asignar_todos_los_municipios(datos: AsignacionMultiple):
+    """Asigna de una vez todos los municipios de la provincia a un repartidor."""
+    repartidor = (datos.repartidor or "").strip()
+    if not repartidor:
+        raise HTTPException(status_code=400, detail="Elige un repartidor")
+    if repartidor not in listar_repartidores():
+        raise HTTPException(status_code=404, detail="Ese repartidor no existe")
+    paradas = _paradas_de_provincia(datos.manifiesto_id, datos.provincia)
+    municipios = sorted({parada["municipio"] for parada in paradas})
+    if not municipios:
+        raise HTTPException(
+            status_code=404, detail="La provincia no tiene municipios que asignar"
+        )
+    asignar_municipios(
+        datos.manifiesto_id, datos.provincia, municipios, repartidor
+    )
+    return {"repartidor": repartidor, "municipios": municipios}
 
 
 # ============================================================

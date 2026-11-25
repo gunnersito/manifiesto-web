@@ -205,6 +205,118 @@ def test_la_correccion_a_mano_manda_sobre_la_cache():
     assert parada["direccion"] == "Calle corregida 123"
 
 
+def test_la_busqueda_del_punto_de_salida_devuelve_varios_candidatos(monkeypatch):
+    # El operador elige entre varios lugares, no se guarda el primero a ciegas.
+    from app.services import geocoding_service
+
+    consultas = []
+
+    def falso(cliente, consulta, limite=5):
+        consultas.append(consulta)
+        return [
+            {"lat": 22.41, "lon": -83.69, "etiqueta": "Calle Martí 120", "aproximado": False},
+            {"lat": 22.42, "lon": -83.70, "etiqueta": "Almacén de la esquina", "aproximado": False},
+        ]
+
+    monkeypatch.setattr(geocoding_service, "buscar_lugares", falso)
+
+    resultados, respaldo = geocoding_service.buscar_candidatos(
+        "Calle Martí 120", "", "PINAR DEL RIO"
+    )
+
+    assert respaldo is False
+    assert [lugar["etiqueta"] for lugar in resultados] == [
+        "Calle Martí 120",
+        "Almacén de la esquina",
+    ]
+    assert consultas == ["Calle Martí 120, PINAR DEL RIO, Cuba"]
+
+
+def test_si_la_direccion_no_aparece_se_busca_el_municipio(monkeypatch):
+    from app.services import geocoding_service
+
+    monkeypatch.setattr(geocoding_service, "PAUSA_ENTRE_CONSULTAS", 0)
+
+    consultas = []
+
+    def falso(cliente, consulta, limite=5):
+        consultas.append(consulta)
+        if consulta == "San Antonio de los Baños, Cuba":
+            return [
+                {
+                    "lat": 22.8889,
+                    "lon": -82.5045,
+                    "etiqueta": "San Antonio de los Baños, Artemisa, Cuba",
+                    "aproximado": True,
+                }
+            ]
+        return []
+
+    monkeypatch.setattr(geocoding_service, "buscar_lugares", falso)
+
+    resultados, respaldo = geocoding_service.buscar_candidatos(
+        "San Antonio de los Baños", "", "LA HABANA"
+    )
+
+    # Con la provincia equivocada no hay dirección; se reintenta sin ella y el
+    # municipio vuelve marcado como aproximado.
+    assert consultas == [
+        "San Antonio de los Baños, LA HABANA, Cuba",
+        "San Antonio de los Baños, Cuba",
+    ]
+    assert respaldo is True
+    assert len(resultados) == 1
+    assert resultados[0]["aproximado"] is True
+    assert (resultados[0]["lat"], resultados[0]["lon"]) == (22.8889, -82.5045)
+
+
+def test_los_lugares_marcan_aproximado_el_centro_del_municipio(monkeypatch):
+    from app.services import geocoding_service
+
+    monkeypatch.setattr(
+        geocoding_service,
+        "_pedir",
+        lambda cliente, parametros: [
+            {
+                "lat": "22.8889379",
+                "lon": "-82.5045048",
+                "display_name": "San Antonio de los Baños, Artemisa, 32500, Cuba",
+                "addresstype": "municipality",
+            },
+            {
+                "lat": "22.8889379",
+                "lon": "-82.5045048",
+                "display_name": "Duplicado",
+                "addresstype": "municipality",
+            },
+            {
+                # Mismo municipio con otro centroide: también es un duplicado.
+                "lat": "22.89181",
+                "lon": "-82.50344",
+                "display_name": "San Antonio de los Baños, Artemisa, 32500, Cuba",
+                "addresstype": "municipality",
+            },
+            {
+                "lat": "22.89",
+                "lon": "-82.50",
+                "display_name": "Calle Martí 120, San Antonio de los Baños",
+                "addresstype": "house",
+            },
+        ],
+    )
+
+    resultados = geocoding_service.buscar_lugares(None, "San Antonio de los Baños, Cuba")
+
+    # Se descartan el punto repetido y el segundo centroide del mismo municipio.
+    assert len(resultados) == 2
+    assert resultados[0]["aproximado"] is True
+    assert (
+        resultados[0]["etiqueta"]
+        == "San Antonio de los Baños, Artemisa, 32500, Cuba"
+    )
+    assert resultados[1]["aproximado"] is False
+
+
 def test_sin_correccion_manda_la_cache_y_sin_nada_queda_sin_ubicar():
     from app.services.rutas_service import aplicar_ubicacion
 

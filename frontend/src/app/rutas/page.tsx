@@ -43,6 +43,7 @@ import {
   type ParadaRuta,
   type ProgresoGeocodificacion,
   type PuntoPartida,
+  type ResultadoLugar,
   type ResumenRutas,
   type RutaRepartidor,
 } from "@/lib/api";
@@ -94,6 +95,12 @@ export default function RutasPage() {
   } | null>(null);
   const [guardandoBase, setGuardandoBase] = useState(false);
   const [buscandoBase, setBuscandoBase] = useState(false);
+  // Resultados de la búsqueda de la base y avisos, dentro del modal: un toast
+  // queda detrás del <dialog> y no se ve.
+  const [resultadosBase, setResultadosBase] = useState<ResultadoLugar[]>([]);
+  const [respaldoBase, setRespaldoBase] = useState(false);
+  const [resultadoSel, setResultadoSel] = useState<number | null>(null);
+  const [errorBase, setErrorBase] = useState<string | null>(null);
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
@@ -275,31 +282,48 @@ export default function RutasPage() {
   const buscarBase = async () => {
     if (!nuevaBase) return;
     if (!nuevaBase.direccion.trim()) {
-      toast.error("Escribe la dirección de la base");
+      setErrorBase("Escribe la dirección de la base");
       return;
     }
     setBuscandoBase(true);
+    setErrorBase(null);
+    setResultadosBase([]);
+    setRespaldoBase(false);
+    setResultadoSel(null);
     try {
-      const { lat, lon } = await buscarPuntoPartida(
+      const { resultados, respaldo, mensaje } = await buscarPuntoPartida(
         nuevaBase.direccion,
         "",
         provincia
       );
-      if (lat == null || lon == null) {
-        toast.error(
-          "El mapa no encontró esa dirección. Puedes escribir las coordenadas a mano."
+      setResultadosBase(resultados);
+      setRespaldoBase(respaldo);
+      if (resultados.length === 0) {
+        setErrorBase(
+          mensaje ||
+            "El mapa no encontró esa dirección. Puedes escribir las coordenadas a mano."
         );
-        return;
       }
-      setNuevaBase((actual) =>
-        actual ? { ...actual, lat: String(lat), lon: String(lon) } : actual
+    } catch (err: any) {
+      setErrorBase(
+        err?.response?.data?.detail ||
+          "No se pudo consultar el mapa. Comprueba la conexión y vuelve a intentarlo."
       );
-      toast.success("Coordenadas encontradas");
-    } catch {
-      toast.error("No se pudo consultar el mapa");
     } finally {
       setBuscandoBase(false);
     }
+  };
+
+  // El operador elige el lugar correcto de la lista; hasta que elija, las
+  // coordenadas no se tocan.
+  const elegirResultado = (lugar: ResultadoLugar, indice: number) => {
+    setResultadoSel(indice);
+    setErrorBase(null);
+    setNuevaBase((actual) =>
+      actual
+        ? { ...actual, lat: lugar.lat.toFixed(6), lon: lugar.lon.toFixed(6) }
+        : actual
+    );
   };
 
   const guardarBase = async () => {
@@ -308,11 +332,11 @@ export default function RutasPage() {
     const lat = Number(nuevaBase.lat.replace(",", "."));
     const lon = Number(nuevaBase.lon.replace(",", "."));
     if (!nombre) {
-      toast.error("Ponle un nombre a la base");
+      setErrorBase("Ponle un nombre a la base");
       return;
     }
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      toast.error("Escribe la latitud y la longitud de la base");
+      setErrorBase("Escribe la latitud y la longitud de la base");
       return;
     }
     setGuardandoBase(true);
@@ -326,10 +350,14 @@ export default function RutasPage() {
       setPuntos(actualizados);
       await asignarSalidaRuta(manifiestoId, provincia, repartidorSel, id);
       setNuevaBase(null);
+      setResultadosBase([]);
+      setRespaldoBase(false);
+      setResultadoSel(null);
+      setErrorBase(null);
       setVersionRuta((v) => v + 1);
       toast.success(`${repartidorSel} sale de ${nombre}`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || "No se pudo guardar la base");
+      setErrorBase(err?.response?.data?.detail || "No se pudo guardar la base");
     } finally {
       setGuardandoBase(false);
     }
@@ -707,9 +735,18 @@ export default function RutasPage() {
                       {isAdmin && repartidorSel && (
                         <button
                           type="button"
-                          onClick={() =>
-                            setNuevaBase({ nombre: "", direccion: "", lat: "", lon: "" })
-                          }
+                          onClick={() => {
+                            setNuevaBase({
+                              nombre: "",
+                              direccion: "",
+                              lat: "",
+                              lon: "",
+                            });
+                            setResultadosBase([]);
+                            setRespaldoBase(false);
+                            setResultadoSel(null);
+                            setErrorBase(null);
+                          }}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 font-medium text-slate-700 transition-colors hover:bg-slate-50"
                         >
                           <Plus className="h-3.5 w-3.5" /> Nueva base
@@ -1080,11 +1117,15 @@ export default function RutasPage() {
                 <input
                   id="base-direccion"
                   value={nuevaBase.direccion}
-                  onChange={(evento) =>
+                  onChange={(evento) => {
                     setNuevaBase((actual) =>
                       actual ? { ...actual, direccion: evento.target.value } : actual
-                    )
-                  }
+                    );
+                    setResultadosBase([]);
+                    setRespaldoBase(false);
+                    setResultadoSel(null);
+                    setErrorBase(null);
+                  }}
                   placeholder="Calle Martí 120, Pinar del Río"
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                 />
@@ -1103,9 +1144,80 @@ export default function RutasPage() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Se busca en OpenStreetMap con la provincia del manifiesto. También
-                puedes escribir las coordenadas a mano.
+                Se busca en OpenStreetMap con la provincia del manifiesto. Elige
+                el lugar correcto o escribe las coordenadas a mano.
               </p>
+
+              {errorBase && (
+                <p
+                  role="alert"
+                  className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"
+                >
+                  {errorBase}
+                </p>
+              )}
+
+              {resultadosBase.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-xs font-medium text-slate-600">
+                    {respaldoBase
+                      ? "No apareció la dirección exacta. Estos son los resultados del municipio:"
+                      : `${resultadosBase.length} ${
+                          resultadosBase.length === 1 ? "resultado" : "resultados"
+                        } del mapa:`}
+                  </p>
+                  <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                    {resultadosBase.map((lugar, indice) => {
+                      const elegido = resultadoSel === indice;
+                      return (
+                        <li key={`${lugar.lat}-${lugar.lon}-${indice}`}>
+                          <button
+                            type="button"
+                            onClick={() => elegirResultado(lugar, indice)}
+                            aria-pressed={elegido}
+                            className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                              elegido
+                                ? "border-primary bg-primary/5"
+                                : "border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span className="flex items-start gap-2">
+                              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="min-w-0 flex-1">
+                                <span className="line-clamp-2 block text-xs font-medium text-slate-800">
+                                  {lugar.etiqueta}
+                                </span>
+                                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                                  <span>
+                                    {lugar.lat.toFixed(5)}, {lugar.lon.toFixed(5)}
+                                  </span>
+                                  {lugar.aproximado && (
+                                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                      Aproximado
+                                    </span>
+                                  )}
+                                  {elegido && (
+                                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                      Elegido
+                                    </span>
+                                  )}
+                                </span>
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {resultadoSel !== null &&
+                    resultadosBase[resultadoSel]?.aproximado && (
+                      <p className="text-[11px] text-amber-700">
+                        Es el centro del municipio, no la dirección exacta: la ruta
+                        saldrá de ahí.
+                      </p>
+                    )}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

@@ -47,6 +47,7 @@ from app.services.estados_service import enriquecer_df_con_estados
 from app.services.excel_exporter import exportar_ruta_repartidor_excel
 from app.services.geocoding_service import (
     GeocodificacionError,
+    buscar_candidatos,
     geocodificar_paradas,
     geocodificar_texto,
 )
@@ -271,20 +272,31 @@ def crear_punto_partida(datos: PuntoPartidaNuevo):
 
 @router.post("/puntos-partida/buscar", dependencies=[Depends(verificar_admin)])
 def buscar_punto_partida(datos: BusquedaSalida):
-    """Busca coordenadas para la dirección escrita de una base de salida."""
-    partes = [datos.direccion, datos.municipio, datos.provincia]
-    consulta = ", ".join(parte.strip() for parte in partes if parte.strip())
-    if not consulta:
+    """
+    Lugares que OpenStreetMap encuentra para una base de salida.
+
+    Devuelve todos los candidatos para que el operador elija el correcto. Si
+    la dirección completa no aparece, responde con el municipio marcado como
+    aproximado.
+    """
+    if not (datos.direccion.strip() or datos.municipio.strip()):
         raise HTTPException(status_code=400, detail="Escribe una dirección para buscar")
 
     try:
-        ubicacion = geocodificar_texto(f"{consulta}, Cuba")
+        resultados, respaldo = buscar_candidatos(
+            datos.direccion, datos.municipio, datos.provincia
+        )
     except GeocodificacionError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
 
-    if ubicacion is None:
-        return {"lat": None, "lon": None}
-    return {"lat": ubicacion[0], "lon": ubicacion[1]}
+    return {
+        "resultados": resultados,
+        "respaldo": respaldo,
+        "mensaje": None
+        if resultados
+        else "El mapa no encontró esa dirección. Prueba con el municipio o "
+        "escribe las coordenadas a mano.",
+    }
 
 
 @router.delete("/puntos-partida/{punto_id}", dependencies=[Depends(verificar_admin)])

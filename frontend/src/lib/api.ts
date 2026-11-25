@@ -521,6 +521,21 @@ export interface PuntoPartida {
   lon: number;
 }
 
+// Un lugar que devuelve el mapa al buscar la base de salida. `aproximado`
+// indica que el punto es el centro de un municipio, no la dirección exacta.
+export interface ResultadoLugar {
+  lat: number;
+  lon: number;
+  etiqueta: string;
+  aproximado: boolean;
+}
+
+export interface BusquedaPuntosPartida {
+  resultados: ResultadoLugar[];
+  respaldo: boolean;
+  mensaje: string | null;
+}
+
 // De dónde arranca la ruta: una base del catálogo, la cabecera provincial o,
 // si no hay coordenadas, la primera parada.
 export type TipoOrigenRuta = "base" | "cabecera" | "primera_parada";
@@ -724,7 +739,7 @@ export async function buscarPuntoPartida(
   direccion: string,
   municipio: string,
   provincia: string
-): Promise<{ lat: number | null; lon: number | null }> {
+): Promise<BusquedaPuntosPartida> {
   const response = await api.post(
     "/rutas/puntos-partida/buscar",
     { direccion, municipio, provincia },

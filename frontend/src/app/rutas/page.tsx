@@ -980,6 +980,15 @@ export default function RutasPage() {
                         {resumen.corregidas} corregida(s) a mano
                       </span>
                     )}
+                    <p className="w-full text-slate-500">
+                      {ruta.origen?.tipo === "base"
+                        ? `Los kilómetros acumulados se cuentan desde la base de salida: ${
+                            ruta.origen.etiqueta ?? "la base del repartidor"
+                          }${ruta.origen.direccion ? ` (${ruta.origen.direccion})` : ""}.`
+                        : ruta.origen?.tipo === "primera_parada"
+                        ? "Los kilómetros acumulados se cuentan desde la primera parada: no hay base ni cabecera ubicadas."
+                        : `Los kilómetros acumulados se cuentan desde la cabecera provincial de ${provincia}.`}
+                    </p>
                   </div>
                 )}
               </div>

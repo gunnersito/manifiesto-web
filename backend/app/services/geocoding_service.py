@@ -8,8 +8,11 @@ User-Agent que identifique la aplicación; ambas cosas se respetan aquí.
 """
 import os
 import time
+import unicodedata
 
 import httpx
+
+from app.core.config import ORDEN_PROVINCIAS
 
 NOMINATIM_URL = os.getenv(
     "NOMINATIM_URL", "https://nominatim.openstreetmap.org/search"
@@ -124,6 +127,7 @@ def buscar_lugares(
             "format": "jsonv2",
             "limit": limite,
             "countrycodes": "cu",
+            "addressdetails": 1,
         },
     )
 
@@ -157,9 +161,78 @@ def buscar_lugares(
                 "lon": lon,
                 "etiqueta": etiqueta,
                 "aproximado": nivel in NIVELES_APROXIMADOS,
+                "provincia": _provincia_del_resultado(dato),
             }
         )
     return lugares
+
+
+def _normalizar_provincia(texto: str | None) -> str:
+    """Provincia comparable: sin tildes, en mayúsculas y con espacios simples."""
+    if not texto:
+        return ""
+    sin_tildes = unicodedata.normalize("NFKD", str(texto))
+    sin_tildes = "".join(c for c in sin_tildes if not unicodedata.combining(c))
+    return " ".join(sin_tildes.upper().split())
+
+
+# Provincias canónicas (orden-provincias.json), normalizadas para comparar.
+_PROVINCIAS_NORM = {_normalizar_provincia(p): p for p in ORDEN_PROVINCIAS}
+
+
+def _provincia_del_resultado(dato: dict) -> str | None:
+    """
+    Provincia del lugar según Nominatim.
+
+    `state` no siempre viene (La Habana suele salir como `city`), así que se
+    miran varios campos y, de último, el nombre completo del resultado. Se
+    devuelve el nombre canónico para poder enseñarlo con sus tildes.
+    """
+    direccion = dato.get("address")
+    if not isinstance(direccion, dict):
+        direccion = {}
+
+    for campo in ("state", "province", "region", "state_district"):
+        valor = direccion.get(campo)
+        if isinstance(valor, str) and valor.strip():
+            return valor.strip()
+
+    # La capital y la Isla de la Juventud llegan como ciudad o municipio, pero
+    # solo se aceptan si el nombre es realmente una provincia.
+    for campo in ("city", "municipality", "county"):
+        valor = direccion.get(campo)
+        if isinstance(valor, str) and _normalizar_provincia(valor) in _PROVINCIAS_NORM:
+            return _PROVINCIAS_NORM[_normalizar_provincia(valor)]
+
+    # Último recurso: la provincia que aparece más cerca del final del nombre
+    # completo ("..., La Habana, 13600, Cuba").
+    etiqueta = _normalizar_provincia(dato.get("display_name"))
+    encontrada = None
+    posicion = -1
+    for normalizada, canonica in _PROVINCIAS_NORM.items():
+        indice = etiqueta.rfind(normalizada)
+        if indice > posicion:
+            posicion = indice
+            encontrada = canonica
+    return encontrada
+
+
+def _marcar_provincia(resultados: list[dict], provincia: str) -> list[dict]:
+    """
+    Marca cada resultado con `misma_provincia`.
+
+    Queda en None cuando el mapa no dice la provincia del lugar, para no
+    avisar de algo que no se sabe.
+    """
+    provincia_manifiesto = _normalizar_provincia(provincia)
+    for lugar in resultados:
+        provincia_lugar = _normalizar_provincia(lugar.get("provincia"))
+        lugar["misma_provincia"] = (
+            None
+            if not provincia_manifiesto or not provincia_lugar
+            else provincia_lugar == provincia_manifiesto
+        )
+    return resultados
 
 
 def _consulta(partes: list[str]) -> str:
@@ -195,7 +268,7 @@ def buscar_candidatos(
     with _cliente() as cliente:
         resultados = buscar_lugares(cliente, f"{consulta}, Cuba", limite)
         if resultados:
-            return resultados, False
+            return _marcar_provincia(resultados, provincia), False
 
         respaldo = municipio or _ultimo_tramo(direccion)
         if not respaldo:
@@ -217,7 +290,7 @@ def buscar_candidatos(
 
     for lugar in resultados:
         lugar["aproximado"] = True
-    return resultados, bool(resultados)
+    return _marcar_provincia(resultados, provincia), bool(resultados)
 
 
 def geocodificar_lote(

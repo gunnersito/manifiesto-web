@@ -317,6 +317,67 @@ def test_los_lugares_marcan_aproximado_el_centro_del_municipio(monkeypatch):
     assert resultados[1]["aproximado"] is False
 
 
+def test_avisa_cuando_el_lugar_elegido_queda_en_otra_provincia(monkeypatch):
+    # Una calle homónima en otra provincia no debe colarse como resultado
+    # exacto sin avisar: cada lugar lleva su provincia y si coincide o no.
+    from app.services import geocoding_service
+
+    monkeypatch.setattr(
+        geocoding_service,
+        "_pedir",
+        lambda cliente, parametros: [
+            {
+                # Carretera de La Habana sin `state`: la provincia sale de `city`.
+                "lat": "23.041",
+                "lon": "-82.4772",
+                "display_name": (
+                    "Novia del Mediodía a San Antonio de los Baños, Autopista La "
+                    "Habana - Pinar del Río, Arroyo Arenas, La Lisa, La Habana, "
+                    "13600, Cuba"
+                ),
+                "addresstype": "highway",
+                "address": {"city": "La Habana", "country": "Cuba"},
+            },
+            {
+                "lat": "22.8889",
+                "lon": "-82.5045",
+                "display_name": "San Antonio de los Baños, Artemisa, Cuba",
+                "addresstype": "municipality",
+                "address": {"state": "Artemisa", "country": "Cuba"},
+            },
+            {
+                # Sin `address`: la provincia se busca en el nombre completo.
+                "lat": "22.89",
+                "lon": "-82.50",
+                "display_name": "Calle Real 12, Artemisa, Cuba",
+                "addresstype": "road",
+            },
+            {
+                "lat": "22.9",
+                "lon": "-82.51",
+                "display_name": "Lugar sin provincia",
+                "addresstype": "road",
+            },
+        ],
+    )
+
+    resultados, _ = geocoding_service.buscar_candidatos(
+        "San Antonio de los Baños", "", "ARTEMISA"
+    )
+
+    assert [lugar["provincia"] for lugar in resultados] == [
+        "La Habana",
+        "Artemisa",
+        "Artemisa",
+        None,
+    ]
+    assert resultados[0]["misma_provincia"] is False
+    assert resultados[1]["misma_provincia"] is True
+    assert resultados[2]["misma_provincia"] is True
+    # Sin provincia en el mapa no se puede afirmar nada: no se avisa.
+    assert resultados[3]["misma_provincia"] is None
+
+
 def test_sin_correccion_manda_la_cache_y_sin_nada_queda_sin_ubicar():
     from app.services.rutas_service import aplicar_ubicacion
 

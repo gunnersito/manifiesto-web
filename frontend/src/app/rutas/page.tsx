@@ -1196,6 +1196,11 @@ export default function RutasPage() {
                                       Aproximado
                                     </span>
                                   )}
+                                  {lugar.misma_provincia === false && (
+                                    <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                                      Otra provincia
+                                    </span>
+                                  )}
                                   {elegido && (
                                     <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                                       Elegido
@@ -1214,6 +1219,17 @@ export default function RutasPage() {
                       <p className="text-[11px] text-amber-700">
                         Es el centro del municipio, no la dirección exacta: la ruta
                         saldrá de ahí.
+                      </p>
+                    )}
+                  {resultadoSel !== null &&
+                    resultadosBase[resultadoSel]?.misma_provincia === false && (
+                      <p
+                        role="alert"
+                        className="rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800"
+                      >
+                        Ese lugar está en {resultadosBase[resultadoSel].provincia},
+                        no en {provincia}. Si guardas la base ahí, la ruta saldrá de
+                        otra provincia.
                       </p>
                     )}
                 </div>

@@ -522,12 +522,16 @@ export interface PuntoPartida {
 }
 
 // Un lugar que devuelve el mapa al buscar la base de salida. `aproximado`
-// indica que el punto es el centro de un municipio, no la dirección exacta.
+// indica que el punto es el centro de un municipio, no la dirección exacta;
+// `misma_provincia` avisa si el lugar cae fuera de la provincia del manifiesto
+// (null cuando el mapa no dice la provincia del resultado).
 export interface ResultadoLugar {
   lat: number;
   lon: number;
   etiqueta: string;
   aproximado: boolean;
+  provincia: string | null;
+  misma_provincia: boolean | null;
 }
 
 export interface BusquedaPuntosPartida {

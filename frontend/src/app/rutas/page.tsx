@@ -840,10 +840,18 @@ export default function RutasPage() {
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
                       {ruta?.origen?.tipo === "base"
-                        ? `Empieza en ${ruta.origen.etiqueta} y encadena las paradas más cercanas.`
+                        ? `Arranca en la base de salida ${
+                            ruta.origen.etiqueta
+                              ? `«${ruta.origen.etiqueta}»`
+                              : "del repartidor"
+                          }${
+                            ruta.origen.direccion
+                              ? ` (${ruta.origen.direccion})`
+                              : ""
+                          } y encadena las paradas más cercanas. Los kilómetros acumulados se cuentan desde ese punto.`
                         : ruta?.origen?.tipo === "primera_parada"
-                        ? "No se pudo ubicar la salida: la ruta empieza en la primera parada."
-                        : `Empieza en la cabecera de ${provincia} y encadena las paradas más cercanas.`}
+                        ? "No hay base ni cabecera ubicadas: arranca en la primera parada y encadena el resto por cercanía. Los kilómetros acumulados se cuentan desde ese punto."
+                        : `Arranca en la cabecera provincial de ${provincia} y encadena las paradas más cercanas. Los kilómetros acumulados se cuentan desde ese punto.`}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                       <span className="inline-flex items-center gap-1 font-medium text-slate-600">
@@ -980,15 +988,6 @@ export default function RutasPage() {
                         {resumen.corregidas} corregida(s) a mano
                       </span>
                     )}
-                    <p className="w-full text-slate-500">
-                      {ruta.origen?.tipo === "base"
-                        ? `Los kilómetros acumulados se cuentan desde la base de salida: ${
-                            ruta.origen.etiqueta ?? "la base del repartidor"
-                          }${ruta.origen.direccion ? ` (${ruta.origen.direccion})` : ""}.`
-                        : ruta.origen?.tipo === "primera_parada"
-                        ? "Los kilómetros acumulados se cuentan desde la primera parada: no hay base ni cabecera ubicadas."
-                        : `Los kilómetros acumulados se cuentan desde la cabecera provincial de ${provincia}.`}
-                    </p>
                   </div>
                 )}
               </div>

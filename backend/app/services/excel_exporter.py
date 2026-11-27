@@ -7,6 +7,7 @@ import re
 import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.properties import PageSetupProperties
 
 from app.core.config import (
     COL_HBL, COL_BULTOS, COL_DIRECCION, COL_PROVINCIA, COL_MUNICIPIO,
@@ -283,8 +284,11 @@ def exportar_por_municipios_excel(df_prov: pd.DataFrame) -> bytes:
 # ============================================================
 # EXPORTAR LA RUTA ORDENADA DE UN REPARTIDOR
 # ============================================================
-def _agregar_totales_ruta(hoja, ruta: dict) -> None:
-    """Pie con el resumen de la ruta y el aviso de cómo se calculó."""
+def _agregar_totales_ruta(hoja, ruta: dict) -> int:
+    """Pie con el resumen de la ruta y el aviso de cómo se calculó.
+
+    Devuelve la fila de la nota final, para poder ajustarla al imprimir.
+    """
     fila = hoja.max_row + 2
     resumen = [
         ("REPARTIDOR:", ruta["repartidor"]),
@@ -323,6 +327,67 @@ def _agregar_totales_ruta(hoja, ruta: dict) -> None:
         ),
     )
     celda.font = Font(italic=True, color="595959")
+    return nota
+
+
+# Anchos pensados para doblar la hoja de ruta en el campo: la dirección es la
+# columna que más ocupa y el resto se ajusta para que quepa en un A4 horizontal.
+ANCHOS_RUTA = {
+    "Parada": 7,
+    "Municipio": 18,
+    "Dirección": 40,
+    "Destinatario": 26,
+    "Teléfono": 13,
+    "HBLs": 22,
+    "Bultos": 7,
+    "Peso (Kg)": 9,
+    "Estado": 11,
+    "Km acumulados": 11,
+    "Ubicación": 12,
+}
+
+
+def _preparar_ruta_para_imprimir(hoja, columnas: list, filas: int, nota: int) -> None:
+    """Deja la hoja lista para imprimir y llevar encima.
+
+    Congela la cabecera y la columna de la parada, activa el autofiltro sobre
+    los datos (sin incluir el pie de totales), repite la cabecera en cada
+    página y ajusta la impresión a una hoja de ancho en A4 horizontal.
+    """
+    hoja.freeze_panes = "B2"
+    if filas > 0:
+        hoja.auto_filter.ref = f"A1:{get_column_letter(len(columnas))}{filas + 1}"
+
+    for indice, columna in enumerate(columnas, start=1):
+        ancho = ANCHOS_RUTA.get(columna)
+        if ancho:
+            hoja.column_dimensions[get_column_letter(indice)].width = ancho
+    for fila in hoja.iter_rows(min_row=2, max_row=filas + 1):
+        for celda in fila:
+            celda.alignment = Alignment(vertical="top", wrap_text=True)
+
+    # La nota del pie ocupa todo el ancho para que no se corte al imprimir.
+    if nota:
+        if len(columnas) > 1:
+            hoja.merge_cells(
+                start_row=nota, start_column=1, end_row=nota, end_column=len(columnas)
+            )
+        hoja.cell(row=nota, column=1).alignment = Alignment(
+            vertical="top", wrap_text=True
+        )
+        hoja.row_dimensions[nota].height = 30
+
+    hoja.print_title_rows = "1:1"
+    hoja.print_options.horizontalCentered = True
+    hoja.page_setup.orientation = "landscape"
+    hoja.page_setup.paperSize = hoja.PAPERSIZE_A4
+    hoja.page_setup.fitToWidth = 1
+    hoja.page_setup.fitToHeight = 0
+    hoja.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    hoja.page_margins.left = 0.3
+    hoja.page_margins.right = 0.3
+    hoja.page_margins.top = 0.4
+    hoja.page_margins.bottom = 0.4
 
 
 def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
@@ -370,7 +435,9 @@ def exportar_ruta_repartidor_excel(ruta: dict) -> bytes:
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         tabla.to_excel(writer, sheet_name=nombre_hoja, index=False)
         _formatear_hoja(writer, nombre_hoja)
-        _agregar_totales_ruta(writer.book[nombre_hoja], ruta)
+        hoja = writer.book[nombre_hoja]
+        nota = _agregar_totales_ruta(hoja, ruta)
+        _preparar_ruta_para_imprimir(hoja, columnas, len(filas), nota)
 
     output.seek(0)
     return output.getvalue()

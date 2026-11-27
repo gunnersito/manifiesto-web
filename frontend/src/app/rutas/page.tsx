@@ -7,6 +7,7 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Copy,
   Download,
   Loader2,
   MapPin,
@@ -20,6 +21,7 @@ import {
   Truck,
   Upload,
   Warehouse,
+  X,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { useManifiesto } from "@/contexts/ManifiestoContext";
@@ -60,6 +62,88 @@ function ordenarProvincias(lista: string[]) {
     if (ib !== -1) return 1;
     return a.localeCompare(b);
   });
+}
+
+// Búsqueda dentro de la ruta: sin mayúsculas ni tildes, para que «rio»
+// encuentre «Río» y «jose» a «José».
+function normalizarTexto(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+// Texto plano para pegar en WhatsApp: una parada por bloque, con teléfono y
+// enlace al mapa cuando hay coordenadas.
+function rutaComoTexto(ruta: RutaRepartidor, provincia: string): string {
+  const lineas = [`*Ruta de ${ruta.repartidor}* · ${provincia}`];
+  const origen = ruta.origen;
+  if (origen?.tipo === "base") {
+    lineas.push(
+      `Sale de ${origen.etiqueta || "la base"}${
+        origen.direccion ? ` (${origen.direccion})` : ""
+      }`
+    );
+  } else if (origen?.tipo === "primera_parada") {
+    lineas.push("Sale de la primera parada (sin base ubicada)");
+  } else {
+    lineas.push(`Sale de la cabecera de ${provincia}`);
+  }
+  lineas.push(
+    `${ruta.total_paradas} paradas · ${ruta.total_bultos} bultos · ` +
+      `${ruta.total_peso} kg · ≈ ${ruta.distancia_km} km`
+  );
+
+  for (const parada of ruta.paradas) {
+    const km = parada.tramo_km != null ? ` · ${parada.tramo_km} km` : "";
+    lineas.push("");
+    lineas.push(
+      `${parada.orden}. ${parada.direccion || "Sin dirección"}${
+        parada.municipio ? `, ${parada.municipio}` : ""
+      }${km}`
+    );
+    const datos = [`${parada.bultos} bultos`];
+    if (parada.destinatario) datos.push(parada.destinatario);
+    if (parada.telefono) datos.push(`Tel. ${parada.telefono}`);
+    lineas.push(`   ${datos.join(" · ")}`);
+    if (parada.hbls.length > 0) lineas.push(`   HBL: ${parada.hbls.join(", ")}`);
+    if (parada.lat != null && parada.lon != null) {
+      lineas.push(`   https://www.google.com/maps?q=${parada.lat},${parada.lon}`);
+    }
+  }
+
+  return lineas.join("\n");
+}
+
+// La API moderna del portapapeles falla fuera de https o si el navegador la
+// bloquea; en ese caso se usa el método clásico con un textarea oculto.
+async function copiarAlPortapapeles(texto: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch {
+    // Se intenta el método clásico justo debajo.
+  }
+
+  const area = document.createElement("textarea");
+  area.value = texto;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "-1000px";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let copiado = false;
+  try {
+    copiado = document.execCommand("copy");
+  } catch {
+    copiado = false;
+  }
+  document.body.removeChild(area);
+  return copiado;
 }
 
 export default function RutasPage() {
@@ -116,6 +200,9 @@ export default function RutasPage() {
   // Sube cada vez que cambia algo que afecta a la ruta (asignaciones,
   // coordenadas nuevas) para volver a pedirla aunque el repartidor sea el mismo.
   const [versionRuta, setVersionRuta] = useState(0);
+  // Búsqueda dentro de la ruta ya calculada. Solo oculta paradas en pantalla:
+  // el orden, los kilómetros y el Excel siguen siendo los de la ruta completa.
+  const [busquedaRuta, setBusquedaRuta] = useState("");
 
   useEffect(() => {
     setIsAdmin(Cookies.get("role") === "admin");
@@ -184,6 +271,28 @@ export default function RutasPage() {
   useEffect(() => {
     cargarRuta();
   }, [cargarRuta]);
+
+  // Al cambiar de repartidor o de provincia la búsqueda deja de tener sentido.
+  useEffect(() => {
+    setBusquedaRuta("");
+  }, [repartidorSel, provincia]);
+
+  const paradasFiltradas = useMemo(() => {
+    const termino = normalizarTexto(busquedaRuta);
+    if (!termino) return ruta?.paradas ?? [];
+    return (ruta?.paradas ?? []).filter((parada) =>
+      normalizarTexto(
+        [
+          parada.municipio,
+          parada.direccion,
+          parada.destinatario,
+          parada.telefono,
+          parada.estado,
+          ...parada.hbls,
+        ].join(" ")
+      ).includes(termino)
+    );
+  }, [ruta, busquedaRuta]);
 
   const agregarRepartidor = async (evento: React.FormEvent) => {
     evento.preventDefault();
@@ -332,6 +441,16 @@ export default function RutasPage() {
       toast.error("No se pudo exportar la ruta");
     } finally {
       setExportandoRuta(false);
+    }
+  };
+
+  const copiarRuta = async () => {
+    if (!ruta || ruta.paradas.length === 0) return;
+    const copiado = await copiarAlPortapapeles(rutaComoTexto(ruta, provincia));
+    if (copiado) {
+      toast.success("Ruta copiada: pégala en WhatsApp");
+    } else {
+      toast.error("El navegador no dejó copiar la ruta. Prueba desde el Excel.");
     }
   };
 
@@ -911,6 +1030,16 @@ export default function RutasPage() {
                     {ruta && ruta.paradas.length > 0 && (
                       <button
                         type="button"
+                        onClick={copiarRuta}
+                        className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copiar para WhatsApp
+                      </button>
+                    )}
+                    {ruta && ruta.paradas.length > 0 && (
+                      <button
+                        type="button"
                         onClick={exportarRuta}
                         disabled={exportandoRuta}
                         className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
@@ -1012,8 +1141,53 @@ export default function RutasPage() {
                 )}
 
                 {!cargandoRuta && ruta && ruta.paradas.length > 0 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={busquedaRuta}
+                        onChange={(evento) => setBusquedaRuta(evento.target.value)}
+                        placeholder="Buscar en la ruta: municipio, dirección, destinatario, teléfono o HBL"
+                        aria-label="Buscar en la ruta"
+                        className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                      />
+                      {busquedaRuta && (
+                        <button
+                          type="button"
+                          onClick={() => setBusquedaRuta("")}
+                          aria-label="Quitar la búsqueda"
+                          title="Quitar la búsqueda"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {busquedaRuta.trim() && (
+                      <span className="text-xs text-slate-500">
+                        {paradasFiltradas.length} de {ruta.paradas.length} paradas
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {!cargandoRuta && ruta && ruta.paradas.length > 0 && paradasFiltradas.length === 0 && (
+                  <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    Ninguna parada coincide con «{busquedaRuta.trim()}».{" "}
+                    <button
+                      type="button"
+                      onClick={() => setBusquedaRuta("")}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Ver la ruta completa
+                    </button>
+                  </div>
+                )}
+
+                {!cargandoRuta && ruta && ruta.paradas.length > 0 && paradasFiltradas.length > 0 && (
                   <ol className="space-y-2">
-                    {ruta.paradas.map((parada) => (
+                    {paradasFiltradas.map((parada) => (
                       <li
                         key={parada.clave}
                         className="flex gap-3 rounded-xl border border-slate-200 p-3"
